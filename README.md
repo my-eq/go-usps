@@ -11,7 +11,7 @@ A lightweight, production-grade Go client library for the USPS Addresses 3.0 RES
 
 - **🎯 Complete Coverage**: Implements all USPS Addresses 3.0 API endpoints and OAuth 2.0 endpoints
 - **💪 Strongly Typed**: All request and response types are fully typed based on the OpenAPI specification
-- **🔒 OAuth Support**: Built-in OAuth 2.0 authentication with support for Client Credentials, Refresh Token, and Authorization Code grants
+- **🔒 OAuth Support**: Built-in OAuth 2.0 with Client Credentials, Refresh Token, and Authorization Code grants
 - **🧪 Testable**: Designed with dependency injection for easy testing
 - **📦 Lightweight**: Zero external dependencies, uses Go standard library only
 - **🏗️ Production Ready**: Used by millions of people as a critical part of their workflows

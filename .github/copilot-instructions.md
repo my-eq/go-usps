@@ -194,6 +194,73 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
 - Skip automatically if token not provided
 - Test against real USPS API
 
+## Quality Assurance
+
+### Before Completing Work
+
+**ALWAYS** run the following checks before completing any work or submitting changes:
+
+1. **Markdown Linting**
+
+   ```bash
+   npx markdownlint-cli2 "**/*.md"
+   ```
+
+   - Ensure all markdown files pass linting
+   - Fix any line length issues (max 120 characters)
+   - Check for proper formatting
+
+2. **Code Linting**
+
+   ```bash
+   go vet ./...
+   gofmt -l .
+   ```
+
+   - Run `go vet` to check for issues
+   - Run `gofmt` to verify formatting
+   - Fix any issues found
+
+3. **Build**
+
+   ```bash
+   go build ./...
+   ```
+
+   - Ensure code builds successfully
+   - No compilation errors
+
+4. **Tests**
+
+   ```bash
+   go test -v -cover ./...
+   ```
+
+   - All tests must pass
+   - Maintain or improve test coverage (target: 88.6%+)
+   - Review test output for failures
+
+### Validation Workflow
+
+Always follow this workflow before reporting progress or completing tasks:
+
+```bash
+# 1. Lint markdown
+npx markdownlint-cli2 "**/*.md"
+
+# 2. Lint code
+go vet ./...
+gofmt -w .
+
+# 3. Build
+go build ./...
+
+# 4. Test
+go test -v -cover ./...
+```
+
+If any step fails, fix the issues before proceeding to the next step.
+
 ## Future Considerations
 
 - Rate limiting handling (429 responses with retry-after)
