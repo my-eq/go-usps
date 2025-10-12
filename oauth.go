@@ -21,13 +21,20 @@ const (
 	OAuthTestingBaseURL = "https://apis-tem.usps.com/oauth2/v3"
 )
 
-// OAuthClient is the USPS OAuth API client
+// OAuthClient is the USPS OAuth API client for managing OAuth 2.0 tokens.
+// It supports Client Credentials, Refresh Token, and Authorization Code grant types.
 type OAuthClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// NewOAuthClient creates a new USPS OAuth API client
+// NewOAuthClient creates a new USPS OAuth API client configured for the production environment.
+// Use functional options to customize the client configuration.
+//
+// Example:
+//
+//	client := usps.NewOAuthClient()
+//	client := usps.NewOAuthClient(usps.WithTimeout(60 * time.Second))
 func NewOAuthClient(opts ...Option) *OAuthClient {
 	c := &OAuthClient{
 		baseURL:    OAuthProductionBaseURL,
@@ -48,13 +55,55 @@ func NewOAuthClient(opts ...Option) *OAuthClient {
 	return c
 }
 
-// NewOAuthTestClient creates a new USPS OAuth API client configured for the testing environment
+// NewOAuthTestClient creates a new USPS OAuth API client configured for the testing environment.
+// This is equivalent to calling NewOAuthClient with WithBaseURL(OAuthTestingBaseURL).
+//
+// Example:
+//
+//	client := usps.NewOAuthTestClient()
 func NewOAuthTestClient(opts ...Option) *OAuthClient {
 	opts = append([]Option{WithBaseURL(OAuthTestingBaseURL)}, opts...)
 	return NewOAuthClient(opts...)
 }
 
-// PostToken generates OAuth tokens based on the grant type
+// PostToken generates OAuth tokens based on the grant type.
+// It supports three grant types:
+//   - Client Credentials: Pass *models.ClientCredentials to get an access token
+//   - Refresh Token: Pass *models.RefreshTokenCredentials to refresh an access token
+//   - Authorization Code: Pass *models.AuthorizationCodeCredentials to exchange an auth code
+//
+// The method returns either *models.ProviderAccessTokenResponse (for client credentials)
+// or *models.ProviderTokensResponse (for grants that include a refresh token).
+//
+// Access tokens are valid for 8 hours. Refresh tokens are valid for 7 days.
+//
+// Example (Client Credentials):
+//
+//	req := &models.ClientCredentials{
+//	    GrantType:    "client_credentials",
+//	    ClientID:     "your-client-id",
+//	    ClientSecret: "your-client-secret",
+//	    Scope:        "addresses tracking",
+//	}
+//	result, err := client.PostToken(ctx, req)
+//	if err != nil {
+//	    return err
+//	}
+//	accessTokenResp := result.(*models.ProviderAccessTokenResponse)
+//
+// Example (Refresh Token):
+//
+//	req := &models.RefreshTokenCredentials{
+//	    GrantType:    "refresh_token",
+//	    ClientID:     "your-client-id",
+//	    ClientSecret: "your-client-secret",
+//	    RefreshToken: "your-refresh-token",
+//	}
+//	result, err := client.PostToken(ctx, req)
+//	if err != nil {
+//	    return err
+//	}
+//	tokensResp := result.(*models.ProviderTokensResponse)
 func (c *OAuthClient) PostToken(ctx context.Context, req interface{}) (interface{}, error) {
 	var contentType string
 	var body io.Reader
@@ -139,7 +188,21 @@ func (c *OAuthClient) PostToken(ctx context.Context, req interface{}) (interface
 	return &accessTokenResp, nil
 }
 
-// PostRevoke revokes an OAuth token
+// PostRevoke revokes an OAuth token using HTTP Basic Authentication.
+// This method is used to invalidate refresh tokens that are no longer needed
+// or suspected of being compromised.
+//
+// The clientID and clientSecret are used for Basic Authentication as required
+// by the USPS OAuth API. The request specifies which token to revoke and
+// optionally provides a hint about the token type.
+//
+// Example:
+//
+//	req := &models.TokenRevokeRequest{
+//	    Token:         "refresh-token-to-revoke",
+//	    TokenTypeHint: "refresh_token",
+//	}
+//	err := client.PostRevoke(ctx, "client-id", "client-secret", req)
 func (c *OAuthClient) PostRevoke(ctx context.Context, clientID, clientSecret string, req *models.TokenRevokeRequest) error {
 	// Encode request body
 	values := url.Values{}
