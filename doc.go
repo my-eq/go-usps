@@ -6,7 +6,7 @@
 //   - City/State Lookup (GetCityState)
 //   - ZIP Code Lookup (GetZIPCode)
 //
-// Quick Start
+// # Quick Start
 //
 // Create a client with your OAuth token:
 //
@@ -36,7 +36,7 @@
 //	}
 //	resp, err := client.GetZIPCode(context.Background(), req)
 //
-// Configuration
+// # Configuration
 //
 // The client can be configured with various options:
 //
@@ -50,7 +50,7 @@
 //
 //	client := usps.NewTestClient(tokenProvider)
 //
-// Error Handling
+// # Error Handling
 //
 // API errors are returned as *APIError with detailed error information:
 //
