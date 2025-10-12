@@ -1,15 +1,23 @@
 # USPS Addresses API Go Client - Copilot Instructions
 
 ## Project Overview
-This is a lightweight, production-grade Go client library for the USPS Addresses 3.0 REST API. The library is designed to be used by millions of people as a critical part of their workflows.
 
-**API Specification**: Fully implements the USPS Addresses 3.0 OpenAPI specification from https://developers.usps.com/addressesv3
+This is a lightweight, production-grade Go client library for the USPS
+Addresses 3.0 REST API. The library is designed to be used by millions of
+people as a critical part of their workflows.
 
-**Production Ready**: This library has been built to enterprise standards with comprehensive testing, zero external dependencies, and follows all Go best practices.
+**API Specification**: Fully implements the USPS Addresses 3.0 OpenAPI
+specification from <https://developers.usps.com/addressesv3>
+
+**Production Ready**: This library has been built to enterprise standards with
+comprehensive testing, zero external dependencies, and follows all Go best
+practices.
 
 ## Core Principles
+
 1. **Lightweight & Clear**: Minimize dependencies and keep the code clear and concise
-2. **Strongly Typed**: All data structures are strongly typed based on the OpenAPI specification
+2. **Strongly Typed**: All data structures are strongly typed based on the
+   OpenAPI specification
 3. **Testability**: Code is structured with dependency injection for easy testing
 4. **DRY**: Don't Repeat Yourself - common patterns are abstracted
 5. **Professional Quality**: Follow Go best practices and idiomatic patterns
@@ -17,12 +25,15 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 ## Architecture
 
 ### Package Structure
-- Root package (`github.com/my-eq/go-usps`) - Main package containing the client and API methods
+
+- Root package (`github.com/my-eq/go-usps`) - Main package containing the
+  client and API methods
 - `models/` - Strongly-typed data models for requests and responses
 
 ### Key Components
 
 #### Client (`client.go`)
+
 - Main entry point for API interactions
 - Handles base URL configuration (production vs testing)
 - Manages HTTP client with proper timeouts
@@ -33,11 +44,13 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
   - `GetZIPCode()` - ZIP code lookup by address
 
 #### Token Provider
+
 - `TokenProvider` interface for flexible authentication
 - `StaticTokenProvider` implementation for simple use cases
 - OAuth Bearer token support via Authorization header
 
 #### Models (`models/`)
+
 - Strongly typed structs matching OpenAPI schemas
 - JSON tags for proper serialization
 - Request types: `AddressRequest`, `CityStateRequest`, `ZIPCodeRequest`
@@ -45,12 +58,14 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 - Error types: `ErrorMessage`, `ErrorInfo`, `ErrorDetail`
 
 ### Error Handling
+
 - Custom `APIError` type for API errors
 - Structured error responses matching USPS API format
 - HTTP status code handling (400, 401, 403, 404, 429, 503)
 - Graceful handling of malformed error responses
 
 ### Testing Strategy
+
 - Unit tests for all public methods (88.7% coverage)
 - Mock HTTP responses using httptest
 - Table-driven tests for edge cases
@@ -60,11 +75,13 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 ## Implementation Status
 
 ### ✅ Completed Features - Production Ready
+
 - [x] Go module initialization
 - [x] All three API endpoints implemented (GetAddress, GetCityState, GetZIPCode)
 - [x] OAuth authentication support via TokenProvider interface
 - [x] Production and testing environment support
-- [x] Strongly-typed models for all request/response types matching OpenAPI 3.0 spec
+- [x] Strongly-typed models for all request/response types matching
+  OpenAPI 3.0 spec
 - [x] Comprehensive error handling with structured APIError type
 - [x] Full test coverage (88.7%)
 - [x] Integration test examples
@@ -74,22 +91,25 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 - [x] MIT License
 - [x] .gitignore configuration
 - [x] Zero external dependencies (Go standard library only)
-- [x] DRY principles with helper functions (doRequest, handleResponse, structToURLValues)
+- [x] DRY principles with helper functions (doRequest, handleResponse,
+  structToURLValues)
 - [x] Dependency injection pattern for testability
 - [x] Follows Go best practices and idiomatic code style
 
-**Status**: ✅ **COMPLETE - Production Ready** - Fully implements USPS Addresses 3.0 API specification
+**Status**: ✅ **COMPLETE - Production Ready** - Fully implements USPS
+Addresses 3.0 API specification
 
 ### API Endpoints
+
 1. **GET /address** - Address standardization
    - Validates and standardizes addresses
    - Returns ZIP+4 when available
    - Supports optional firm name, secondary address, urbanization
-   
+
 2. **GET /city-state** - City/State lookup
    - Returns city and state for a given ZIP code
    - Simple single-parameter request
-   
+
 3. **GET /zipcode** - ZIP code lookup
    - Returns ZIP code and ZIP+4 for an address
    - Requires street address, city, and state
@@ -97,17 +117,20 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 ## Coding Standards
 
 ### Naming Conventions
+
 - Use Go conventions: `GetAddress`, not `get_address`
 - Acronyms in caps when appropriate: `HTTPClient`, `USPSClient`, `ZIPCode`
 - Clear, descriptive names over brevity
 
 ### Documentation
+
 - All exported types, functions, and methods have godoc comments
 - Comments start with the name of the thing being documented
 - Package-level documentation in doc.go files
 - Example tests demonstrate usage
 
 ### Dependencies
+
 - **Zero external dependencies** - only Go standard library
 - No third-party packages required
 - Clean go.mod file
@@ -115,24 +138,28 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 ## Implementation Notes
 
 ### OAuth Authentication
+
 - Token is passed via Authorization header: `Bearer {token}`
 - Client accepts `TokenProvider` interface for flexibility
 - `StaticTokenProvider` included for simple use cases
 - Token refresh is caller's responsibility
 
 ### HTTP Client
+
 - 30-second default timeout
 - Full context support for cancellation
 - Configurable via `WithTimeout()` and `WithHTTPClient()` options
 - Uses standard library's net/http
 
 ### Query Parameters
+
 - Custom `structToURLValues()` function for encoding
 - Supports `url` struct tags with `omitempty` option
 - Validates required parameters before making requests
 - Handles optional parameters gracefully
 
 ### Response Handling
+
 - Unmarshals JSON responses to strongly-typed structs
 - Handles error responses with proper structure
 - Graceful degradation for malformed error responses
@@ -141,6 +168,7 @@ This is a lightweight, production-grade Go client library for the USPS Addresses
 ## Testing
 
 ### Running Tests
+
 ```bash
 go test ./...                    # Run all tests
 go test -v ./...                 # Verbose output
@@ -149,6 +177,7 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
 ```
 
 ### Test Coverage
+
 - Current: 88.7% statement coverage
 - 20+ test cases covering:
   - Success scenarios for all endpoints
@@ -159,12 +188,14 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
   - Configuration options
 
 ### Integration Tests
+
 - Located in `integration_test.go`
 - Require `USPS_TOKEN` environment variable
 - Skip automatically if token not provided
 - Test against real USPS API
 
 ## Future Considerations
+
 - Rate limiting handling (429 responses with retry-after)
 - Circuit breaker pattern for resilience
 - Metrics/observability hooks
@@ -175,6 +206,7 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
 ## Maintenance Guidelines
 
 ### Adding New Features
+
 1. Update models if new fields are added to API
 2. Add tests for new functionality
 3. Update documentation and examples
@@ -182,6 +214,7 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
 5. Update this file with changes
 
 ### Updating for API Changes
+
 1. Review USPS API changelog
 2. Update OpenAPI spec reference in issue
 3. Update models to match new spec
@@ -189,6 +222,7 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
 5. Update documentation
 
 ### Version Management
+
 - Follow semantic versioning
 - Tag releases in git
 - Document breaking changes
@@ -196,13 +230,16 @@ go test -coverprofile=c.out ./...  # Generate coverage profile
 
 ## Summary
 
-This library is **production-ready** and fully implements the USPS Addresses 3.0 API specification. It has been built with:
+This library is **production-ready** and fully implements the USPS Addresses
+3.0 API specification. It has been built with:
 
 - **Zero external dependencies** - Only Go standard library
 - **High test coverage** - 88.7% with comprehensive unit and integration tests
-- **Clean architecture** - Dependency injection, DRY principles, clear separation of concerns
+- **Clean architecture** - Dependency injection, DRY principles, clear
+  separation of concerns
 - **Strong typing** - All models match the OpenAPI specification exactly
-- **Production quality** - Suitable for use by millions of users as a critical component
+- **Production quality** - Suitable for use by millions of users as a critical
+  component
 - **Excellent documentation** - godoc, examples, README, and this file
 
 The library is ready for v1.0.0 release and production deployment.

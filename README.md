@@ -65,7 +65,8 @@ func main() {
 
 ### Address Standardization
 
-Standardizes street addresses including city and street abbreviations, and provides missing information such as ZIP Code™ and ZIP + 4®.
+Standardizes street addresses including city and street abbreviations, and
+provides missing information such as ZIP Code™ and ZIP + 4®.
 
 ```go
 req := &models.AddressRequest{
