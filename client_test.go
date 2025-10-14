@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -724,6 +725,223 @@ func TestGetAddress_AdditionalInfoAndCorrections(t *testing.T) {
 	if len(resp.Warnings) != 2 {
 		t.Fatalf("Expected 2 warnings, got %d", len(resp.Warnings))
 	}
+}
+
+func TestStructToURLValues_NonStruct(t *testing.T) {
+	// Test with non-struct input
+	_, err := structToURLValues("not a struct")
+	if err == nil {
+		t.Fatal("Expected error for non-struct input, got nil")
+	}
+}
+
+func TestStructToURLValues_PointerField(t *testing.T) {
+	// Test with pointer string field
+	value := "test-value"
+	type TestStruct struct {
+		Field *string `url:"field"`
+	}
+
+	input := &TestStruct{
+		Field: &value,
+	}
+
+	values, err := structToURLValues(input)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if values.Get("field") != "test-value" {
+		t.Errorf("Expected field='test-value', got '%s'", values.Get("field"))
+	}
+}
+
+func TestStructToURLValues_DefaultCase(t *testing.T) {
+	// Test with unsupported field type (should be skipped)
+	type TestStruct struct {
+		IntField int    `url:"intfield"`
+		StrField string `url:"strfield"`
+	}
+
+	input := &TestStruct{
+		IntField: 123,
+		StrField: "test",
+	}
+
+	values, err := structToURLValues(input)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	// Int field should be skipped (default case in switch)
+	if values.Get("intfield") != "" {
+		t.Errorf("Expected intfield to be skipped, got '%s'", values.Get("intfield"))
+	}
+
+	// String field should be included
+	if values.Get("strfield") != "test" {
+		t.Errorf("Expected strfield='test', got '%s'", values.Get("strfield"))
+	}
+}
+
+func TestStructToURLValues_NoTag(t *testing.T) {
+	// Test with field that has no url tag
+	type TestStruct struct {
+		NoTag   string
+		WithTag string `url:"withtag"`
+		DashTag string `url:"-"`
+	}
+
+	input := &TestStruct{
+		NoTag:   "notag",
+		WithTag: "withtag",
+		DashTag: "dashtag",
+	}
+
+	values, err := structToURLValues(input)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	// NoTag and DashTag should be skipped
+	if values.Get("NoTag") != "" {
+		t.Errorf("Expected NoTag to be skipped")
+	}
+	if values.Get("dashtag") != "" {
+		t.Errorf("Expected DashTag to be skipped")
+	}
+
+	// WithTag should be included
+	if values.Get("withtag") != "withtag" {
+		t.Errorf("Expected withtag='withtag', got '%s'", values.Get("withtag"))
+	}
+}
+
+func TestDoRequest_StructToURLValuesError(t *testing.T) {
+	// Test with a non-struct param to trigger structToURLValues error
+	provider := NewStaticTokenProvider("test-token")
+	client := NewClient(provider)
+
+	ctx := context.Background()
+
+	// Pass a non-struct value as queryParams
+	_, err := client.doRequest(ctx, http.MethodGet, "/test", "not a struct")
+	if err == nil {
+		t.Fatal("Expected error from structToURLValues, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to encode query parameters") {
+		t.Errorf("Expected error about query parameters, got: %v", err)
+	}
+}
+
+func TestDoRequest_InvalidURL(t *testing.T) {
+	// Create a client with an invalid method that would cause NewRequestWithContext to fail
+	provider := NewStaticTokenProvider("test-token")
+	client := NewClient(provider, WithBaseURL("http://localhost"))
+
+	ctx := context.Background()
+
+	// Use an invalid HTTP method to trigger the error
+	_, err := client.doRequest(ctx, "INVALID\nMETHOD", "/test", nil)
+	if err == nil {
+		t.Fatal("Expected error for invalid request, got nil")
+	}
+}
+
+func TestDoRequest_HTTPClientError(t *testing.T) {
+	// Create a client with a custom HTTP client that will fail
+	provider := NewStaticTokenProvider("test-token")
+
+	// Create a custom HTTP client with a transport that always fails
+	customClient := &http.Client{
+		Transport: &failingTransport{},
+	}
+
+	client := NewClient(provider, WithHTTPClient(customClient))
+
+	ctx := context.Background()
+	req := &models.CityStateRequest{
+		ZIPCode: "10001",
+	}
+
+	_, err := client.GetCityState(ctx, req)
+	if err == nil {
+		t.Fatal("Expected error from HTTP client, got nil")
+	}
+}
+
+func TestHandleResponse_ReadBodyError(t *testing.T) {
+	// Create a response with a failing body reader
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &failingReader{},
+		Header:     http.Header{},
+	}
+
+	provider := NewStaticTokenProvider("test-token")
+	client := NewClient(provider)
+
+	var result models.CityStateResponse
+	err := client.handleResponse(resp, &result)
+	if err == nil {
+		t.Fatal("Expected error from failing reader, got nil")
+	}
+}
+
+func TestGetCityState_DoRequestError(t *testing.T) {
+	// Test error propagation from doRequest
+	provider := &mockTokenProvider{
+		err: context.DeadlineExceeded,
+	}
+	client := NewClient(provider)
+
+	ctx := context.Background()
+	req := &models.CityStateRequest{
+		ZIPCode: "10001",
+	}
+
+	_, err := client.GetCityState(ctx, req)
+	if err == nil {
+		t.Fatal("Expected error from doRequest, got nil")
+	}
+}
+
+func TestGetZIPCode_DoRequestError(t *testing.T) {
+	// Test error propagation from doRequest
+	provider := &mockTokenProvider{
+		err: context.DeadlineExceeded,
+	}
+	client := NewClient(provider)
+
+	ctx := context.Background()
+	req := &models.ZIPCodeRequest{
+		StreetAddress: "123 Main St",
+		City:          "New York",
+		State:         "NY",
+	}
+
+	_, err := client.GetZIPCode(ctx, req)
+	if err == nil {
+		t.Fatal("Expected error from doRequest, got nil")
+	}
+}
+
+// failingTransport is a custom transport that always fails
+type failingTransport struct{}
+
+func (t *failingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return nil, context.DeadlineExceeded
+}
+
+// failingReader is a custom reader that always fails
+type failingReader struct{}
+
+func (r *failingReader) Read(p []byte) (n int, err error) {
+	return 0, context.DeadlineExceeded
+}
+
+func (r *failingReader) Close() error {
+	return nil
 }
 
 // Helper function to create string pointers
