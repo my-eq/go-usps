@@ -12,7 +12,12 @@
 //
 // # Quick Start
 //
-// The easiest way to use the library is with automatic OAuth token management:
+// The easiest way to use the library is with the convenience function
+// that creates a client with automatic OAuth token management:
+//
+//	client := usps.NewClientWithOAuth("client-id", "client-secret")
+//
+// Alternatively, create the provider and client separately:
 //
 //	tokenProvider := usps.NewOAuthTokenProvider("client-id", "client-secret")
 //	client := usps.NewClient(tokenProvider)
@@ -42,7 +47,13 @@
 //
 // # OAuth Authentication
 //
-// The library provides automatic OAuth token management via OAuthTokenProvider (recommended):
+// The simplest approach is to use the convenience functions:
+//
+//	client := usps.NewClientWithOAuth("client-id", "client-secret")
+//	// Or for testing environment:
+//	client := usps.NewTestClientWithOAuth("client-id", "client-secret")
+//
+// The library also provides automatic OAuth token management via OAuthTokenProvider:
 //
 //	tokenProvider := usps.NewOAuthTokenProvider(
 //	    "your-client-id",

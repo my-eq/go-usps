@@ -115,6 +115,18 @@ func NewOAuthTokenProvider(clientID, clientSecret string, opts ...OAuthTokenOpti
 	return p
 }
 
+// NewOAuthTestTokenProvider creates a new OAuthTokenProvider configured for the testing environment.
+// This is equivalent to calling NewOAuthTokenProvider with WithOAuthEnvironment("testing").
+//
+// Example:
+//
+//	provider := usps.NewOAuthTestTokenProvider("test-client-id", "test-client-secret")
+//	client := usps.NewTestClient(provider)
+func NewOAuthTestTokenProvider(clientID, clientSecret string, opts ...OAuthTokenOption) *OAuthTokenProvider {
+	opts = append([]OAuthTokenOption{WithOAuthEnvironment("testing")}, opts...)
+	return NewOAuthTokenProvider(clientID, clientSecret, opts...)
+}
+
 // GetToken returns a valid OAuth token, refreshing it if necessary.
 // This method is thread-safe and implements the TokenProvider interface.
 func (p *OAuthTokenProvider) GetToken(ctx context.Context) (string, error) {

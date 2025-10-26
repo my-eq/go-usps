@@ -238,3 +238,38 @@ func ExampleNewOAuthTokenProvider_withOptions() {
 
 	fmt.Printf("City: %s, State: %s\n", resp.City, resp.State)
 }
+
+func ExampleNewClientWithOAuth() {
+	// Create a client with automatic OAuth token management in one step
+	client := usps.NewClientWithOAuth("your-client-id", "your-client-secret")
+
+	// Use the client - tokens are managed automatically
+	req := &models.AddressRequest{
+		StreetAddress: "123 Main St",
+		City:          "New York",
+		State:         "NY",
+	}
+
+	resp, err := client.GetAddress(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	fmt.Printf("Address: %s\n", resp.Address.StreetAddress)
+}
+
+func ExampleNewTestClientWithOAuth() {
+	// Create a test client with automatic OAuth token management
+	client := usps.NewTestClientWithOAuth("test-client-id", "test-client-secret")
+
+	req := &models.CityStateRequest{
+		ZIPCode: "10001",
+	}
+
+	resp, err := client.GetCityState(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	fmt.Printf("City: %s, State: %s\n", resp.City, resp.State)
+}

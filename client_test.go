@@ -51,6 +51,48 @@ func TestNewTestClient(t *testing.T) {
 	}
 }
 
+func TestNewClientWithOAuth(t *testing.T) {
+	client := NewClientWithOAuth("client-id", "client-secret")
+
+	if client.baseURL != ProductionBaseURL {
+		t.Errorf("Expected base URL %s, got %s", ProductionBaseURL, client.baseURL)
+	}
+
+	// Verify the token provider is an OAuthTokenProvider
+	provider, ok := client.tokenProvider.(*OAuthTokenProvider)
+	if !ok {
+		t.Fatalf("Expected tokenProvider to be *OAuthTokenProvider, got %T", client.tokenProvider)
+	}
+
+	if provider.clientID != "client-id" {
+		t.Errorf("Expected clientID 'client-id', got '%s'", provider.clientID)
+	}
+	if provider.clientSecret != "client-secret" {
+		t.Errorf("Expected clientSecret 'client-secret', got '%s'", provider.clientSecret)
+	}
+}
+
+func TestNewTestClientWithOAuth(t *testing.T) {
+	client := NewTestClientWithOAuth("test-client-id", "test-client-secret")
+
+	if client.baseURL != TestingBaseURL {
+		t.Errorf("Expected base URL %s, got %s", TestingBaseURL, client.baseURL)
+	}
+
+	// Verify the token provider is an OAuthTokenProvider
+	provider, ok := client.tokenProvider.(*OAuthTokenProvider)
+	if !ok {
+		t.Fatalf("Expected tokenProvider to be *OAuthTokenProvider, got %T", client.tokenProvider)
+	}
+
+	if provider.clientID != "test-client-id" {
+		t.Errorf("Expected clientID 'test-client-id', got '%s'", provider.clientID)
+	}
+	if provider.oauthClient.baseURL != OAuthTestingBaseURL {
+		t.Errorf("Expected OAuth baseURL '%s', got '%s'", OAuthTestingBaseURL, provider.oauthClient.baseURL)
+	}
+}
+
 func TestClientOptions(t *testing.T) {
 	token := "test-token"
 	provider := NewStaticTokenProvider(token)

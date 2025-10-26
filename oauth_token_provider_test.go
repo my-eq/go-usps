@@ -29,6 +29,20 @@ func TestNewOAuthTokenProvider(t *testing.T) {
 	}
 }
 
+func TestNewOAuthTestTokenProvider(t *testing.T) {
+	provider := NewOAuthTestTokenProvider("test-client-id", "test-client-secret")
+
+	if provider.clientID != "test-client-id" {
+		t.Errorf("Expected clientID 'test-client-id', got '%s'", provider.clientID)
+	}
+	if provider.clientSecret != "test-client-secret" {
+		t.Errorf("Expected clientSecret 'test-client-secret', got '%s'", provider.clientSecret)
+	}
+	if provider.oauthClient.baseURL != OAuthTestingBaseURL {
+		t.Errorf("Expected baseURL '%s', got '%s'", OAuthTestingBaseURL, provider.oauthClient.baseURL)
+	}
+}
+
 func TestOAuthTokenProvider_WithOptions(t *testing.T) {
 	provider := NewOAuthTokenProvider(
 		"client-id",

@@ -99,6 +99,41 @@ func NewTestClient(tokenProvider TokenProvider, opts ...Option) *Client {
 	return NewClient(tokenProvider, opts...)
 }
 
+// NewClientWithOAuth creates a new USPS API client with automatic OAuth token management.
+// This is a convenience function that creates an OAuthTokenProvider and a Client in one step.
+//
+// The OAuth provider automatically handles token acquisition, caching, and refresh.
+// Additional OAuth options can be passed to customize the provider behavior.
+//
+// Example:
+//
+//	client := usps.NewClientWithOAuth("client-id", "client-secret")
+//
+// Example with options:
+//
+//	client := usps.NewClientWithOAuth(
+//	    "client-id",
+//	    "client-secret",
+//	    usps.WithOAuthScopes("addresses tracking"),
+//	    usps.WithTokenRefreshBuffer(10 * time.Minute),
+//	)
+func NewClientWithOAuth(clientID, clientSecret string, opts ...OAuthTokenOption) *Client {
+	provider := NewOAuthTokenProvider(clientID, clientSecret, opts...)
+	return NewClient(provider)
+}
+
+// NewTestClientWithOAuth creates a new USPS API client with automatic OAuth token management
+// configured for the testing environment. This is a convenience function that combines
+// NewOAuthTestTokenProvider and NewTestClient.
+//
+// Example:
+//
+//	client := usps.NewTestClientWithOAuth("test-client-id", "test-client-secret")
+func NewTestClientWithOAuth(clientID, clientSecret string, opts ...OAuthTokenOption) *Client {
+	provider := NewOAuthTestTokenProvider(clientID, clientSecret, opts...)
+	return NewTestClient(provider)
+}
+
 // doRequest executes an HTTP request and handles the response
 func (c *Client) doRequest(ctx context.Context, method, path string, queryParams interface{}) (*http.Response, error) {
 	// Build URL with query parameters
