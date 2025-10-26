@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/my-eq/go-usps"
 	"github.com/my-eq/go-usps/models"
@@ -187,4 +188,53 @@ func ExampleNewOAuthTestClient() {
 
 	accessTokenResp := result.(*models.ProviderAccessTokenResponse)
 	fmt.Printf("Test Access Token obtained (expires in %d seconds)\n", accessTokenResp.ExpiresIn)
+}
+
+func ExampleNewOAuthTokenProvider() {
+	// Create an OAuth token provider with your client credentials
+	// This will automatically handle token acquisition and refresh
+	tokenProvider := usps.NewOAuthTokenProvider("your-client-id", "your-client-secret")
+
+	// Create a client using the OAuth token provider
+	client := usps.NewClient(tokenProvider)
+
+	// The token provider automatically manages tokens
+	req := &models.AddressRequest{
+		StreetAddress: "123 Main St",
+		City:          "New York",
+		State:         "NY",
+	}
+
+	resp, err := client.GetAddress(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	fmt.Printf("Address: %s\n", resp.Address.StreetAddress)
+}
+
+func ExampleNewOAuthTokenProvider_withOptions() {
+	// Create an OAuth token provider with custom options
+	tokenProvider := usps.NewOAuthTokenProvider(
+		"your-client-id",
+		"your-client-secret",
+		usps.WithOAuthScopes("addresses tracking labels"),
+		usps.WithTokenRefreshBuffer(10*time.Minute),
+		usps.WithOAuthEnvironment("testing"),
+		usps.WithRefreshTokens(true),
+	)
+
+	// Use with the USPS client
+	client := usps.NewClient(tokenProvider)
+
+	req := &models.CityStateRequest{
+		ZIPCode: "10001",
+	}
+
+	resp, err := client.GetCityState(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	fmt.Printf("City: %s, State: %s\n", resp.City, resp.State)
 }

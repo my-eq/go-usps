@@ -112,7 +112,51 @@ resp, err := client.GetZIPCode(ctx, req)
 
 The library provides full support for USPS OAuth 2.0 API endpoints to obtain and manage access tokens.
 
-### Obtaining an Access Token
+### Automatic OAuth Token Management (Recommended)
+
+The easiest way to use OAuth is with the built-in `OAuthTokenProvider` that automatically handles
+token acquisition, caching, and refresh:
+
+```go
+// Create an OAuth token provider with your client credentials
+tokenProvider := usps.NewOAuthTokenProvider("your-client-id", "your-client-secret")
+
+// Create a client - tokens are managed automatically
+client := usps.NewClient(tokenProvider)
+
+// Make API calls - tokens are automatically acquired and refreshed as needed
+resp, err := client.GetAddress(ctx, req)
+```
+
+**Features of OAuthTokenProvider:**
+
+- Automatic token acquisition using client credentials flow
+- Token caching to avoid unnecessary requests
+- Automatic refresh 5 minutes before expiration (configurable)
+- Thread-safe for concurrent use
+- Optional refresh token support
+
+**Configuration options:**
+
+```go
+tokenProvider := usps.NewOAuthTokenProvider(
+    "your-client-id",
+    "your-client-secret",
+    usps.WithOAuthScopes("addresses tracking labels"),  // Set OAuth scopes
+    usps.WithTokenRefreshBuffer(10 * time.Minute),     // Refresh 10 min before expiry
+    usps.WithOAuthEnvironment("testing"),              // Use testing environment
+    usps.WithRefreshTokens(true),                      // Enable refresh token usage
+)
+```
+
+**Note**: Access tokens are valid for 8 hours. The provider will automatically refresh them
+5 minutes before expiration (configurable via `WithTokenRefreshBuffer`).
+
+### Manual Token Management
+
+For advanced use cases, you can manually manage OAuth tokens:
+
+#### Obtaining an Access Token
 
 Use the Client Credentials grant to obtain an access token:
 
@@ -145,7 +189,7 @@ client := usps.NewClient(tokenProvider)
 
 **Note**: Access tokens are valid for 8 hours after issuance.
 
-### Refreshing an Access Token
+#### Refreshing an Access Token
 
 Use a refresh token to obtain a new access token:
 
