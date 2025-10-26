@@ -3,6 +3,7 @@ package usps
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -288,7 +289,7 @@ func TestOAuthTokenProvider_ConcurrentAccess(t *testing.T) {
 				return
 			}
 			if token != "test-access-token" {
-				errors <- err
+				errors <- fmt.Errorf("expected token 'test-access-token', got '%s'", token)
 			}
 		}()
 	}

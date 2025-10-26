@@ -168,6 +168,12 @@ func (p *OAuthTokenProvider) GetToken(ctx context.Context) (string, error) {
 	return p.cachedToken, nil
 }
 
+// calculateExpiration calculates the token expiration time with the configured refresh buffer.
+func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) time.Time {
+	expiresInDuration := time.Duration(expiresIn) * time.Second
+	return time.Now().Add(expiresInDuration - p.refreshBuffer)
+}
+
 // acquireTokenLocked acquires a new token using client credentials.
 // Caller must hold the write lock.
 func (p *OAuthTokenProvider) acquireTokenLocked(ctx context.Context) error {
@@ -187,16 +193,12 @@ func (p *OAuthTokenProvider) acquireTokenLocked(ctx context.Context) error {
 	switch resp := result.(type) {
 	case *models.ProviderAccessTokenResponse:
 		p.cachedToken = resp.AccessToken
-		// Calculate expiration time with buffer
-		expiresIn := time.Duration(resp.ExpiresIn) * time.Second
-		p.tokenExpiration = time.Now().Add(expiresIn - p.refreshBuffer)
+		p.tokenExpiration = p.calculateExpiration(resp.ExpiresIn)
 		// Clear refresh token since client credentials don't return one
 		p.refreshToken = ""
 	case *models.ProviderTokensResponse:
 		p.cachedToken = resp.AccessToken
-		// Calculate expiration time with buffer
-		expiresIn := time.Duration(resp.ExpiresIn) * time.Second
-		p.tokenExpiration = time.Now().Add(expiresIn - p.refreshBuffer)
+		p.tokenExpiration = p.calculateExpiration(resp.ExpiresIn)
 		// Store refresh token if refresh tokens are enabled
 		if p.useRefreshTokens {
 			p.refreshToken = resp.RefreshToken
@@ -235,9 +237,7 @@ func (p *OAuthTokenProvider) refreshTokenLocked(ctx context.Context) error {
 	}
 
 	p.cachedToken = tokensResp.AccessToken
-	// Calculate expiration time with buffer
-	expiresIn := time.Duration(tokensResp.ExpiresIn) * time.Second
-	p.tokenExpiration = time.Now().Add(expiresIn - p.refreshBuffer)
+	p.tokenExpiration = p.calculateExpiration(tokensResp.ExpiresIn)
 	// Update refresh token
 	p.refreshToken = tokensResp.RefreshToken
 
