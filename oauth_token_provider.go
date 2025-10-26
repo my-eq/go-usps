@@ -9,6 +9,12 @@ import (
 	"github.com/my-eq/go-usps/models"
 )
 
+const (
+	// DefaultTokenRefreshBuffer is the default time before token expiration to refresh.
+	// Tokens are refreshed 5 minutes before they expire by default.
+	DefaultTokenRefreshBuffer = 5 * time.Minute
+)
+
 // OAuthTokenProvider is a TokenProvider that automatically manages OAuth 2.0 tokens.
 // It handles token acquisition, caching, and automatic refresh before expiration.
 // This provider is thread-safe and suitable for concurrent use in production environments.
@@ -37,7 +43,7 @@ func WithOAuthScopes(scopes string) OAuthTokenOption {
 }
 
 // WithTokenRefreshBuffer sets how early before expiration to refresh the token.
-// Default is 5 minutes before the token expires.
+// Default is DefaultTokenRefreshBuffer (5 minutes) before the token expires.
 // This ensures tokens are refreshed proactively before they expire.
 func WithTokenRefreshBuffer(duration time.Duration) OAuthTokenOption {
 	return func(p *OAuthTokenProvider) {
@@ -98,7 +104,7 @@ func NewOAuthTokenProvider(clientID, clientSecret string, opts ...OAuthTokenOpti
 	p := &OAuthTokenProvider{
 		clientID:      clientID,
 		clientSecret:  clientSecret,
-		refreshBuffer: 5 * time.Minute, // Default: refresh 5 minutes before expiry
+		refreshBuffer: DefaultTokenRefreshBuffer,
 		oauthClient:   NewOAuthClient(),
 	}
 
