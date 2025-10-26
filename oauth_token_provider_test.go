@@ -21,8 +21,8 @@ func TestNewOAuthTokenProvider(t *testing.T) {
 	if provider.clientSecret != "client-secret" {
 		t.Errorf("Expected clientSecret 'client-secret', got '%s'", provider.clientSecret)
 	}
-	if provider.refreshBuffer != 5*time.Minute {
-		t.Errorf("Expected refreshBuffer 5 minutes, got %v", provider.refreshBuffer)
+	if provider.refreshBuffer != DefaultTokenRefreshBuffer {
+		t.Errorf("Expected refreshBuffer %v, got %v", DefaultTokenRefreshBuffer, provider.refreshBuffer)
 	}
 	if provider.oauthClient == nil {
 		t.Error("Expected oauthClient to be initialized")
