@@ -114,8 +114,24 @@ The library provides full support for USPS OAuth 2.0 API endpoints to obtain and
 
 ### Automatic OAuth Token Management (Recommended)
 
-The easiest way to use OAuth is with the built-in `OAuthTokenProvider` that automatically handles
-token acquisition, caching, and refresh:
+The easiest way to use OAuth is with the built-in convenience functions that create
+a client with automatic token management in one step:
+
+```go
+// Create a client with automatic OAuth - simplest approach
+client := usps.NewClientWithOAuth("your-client-id", "your-client-secret")
+
+// Make API calls - tokens are automatically acquired and refreshed as needed
+resp, err := client.GetAddress(ctx, req)
+```
+
+For the testing environment:
+
+```go
+client := usps.NewTestClientWithOAuth("your-client-id", "your-client-secret")
+```
+
+**Alternatively**, you can create the provider and client separately:
 
 ```go
 // Create an OAuth token provider with your client credentials
@@ -128,7 +144,7 @@ client := usps.NewClient(tokenProvider)
 resp, err := client.GetAddress(ctx, req)
 ```
 
-**Features of OAuthTokenProvider:**
+**Features of automatic OAuth token management:**
 
 - Automatic token acquisition using client credentials flow
 - Token caching to avoid unnecessary requests
@@ -139,6 +155,16 @@ resp, err := client.GetAddress(ctx, req)
 **Configuration options:**
 
 ```go
+// Using the convenience function with options
+client := usps.NewClientWithOAuth(
+    "your-client-id",
+    "your-client-secret",
+    usps.WithOAuthScopes("addresses tracking labels"),  // Set OAuth scopes
+    usps.WithTokenRefreshBuffer(10 * time.Minute),     // Refresh 10 min before expiry
+    usps.WithRefreshTokens(true),                      // Enable refresh token usage
+)
+
+// Or create the provider separately with options
 tokenProvider := usps.NewOAuthTokenProvider(
     "your-client-id",
     "your-client-secret",
