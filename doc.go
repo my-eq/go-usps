@@ -12,9 +12,9 @@
 //
 // # Quick Start
 //
-// Create a client with your OAuth token:
+// The easiest way to use the library is with automatic OAuth token management:
 //
-//	tokenProvider := usps.NewStaticTokenProvider("your-oauth-token")
+//	tokenProvider := usps.NewOAuthTokenProvider("client-id", "client-secret")
 //	client := usps.NewClient(tokenProvider)
 //
 // Standardize an address:
@@ -42,7 +42,23 @@
 //
 // # OAuth Authentication
 //
-// Use the OAuthClient to obtain access tokens:
+// The library provides automatic OAuth token management via OAuthTokenProvider (recommended):
+//
+//	tokenProvider := usps.NewOAuthTokenProvider(
+//	    "your-client-id",
+//	    "your-client-secret",
+//	    usps.WithOAuthScopes("addresses tracking"),
+//	    usps.WithTokenRefreshBuffer(10 * time.Minute),
+//	)
+//	client := usps.NewClient(tokenProvider)
+//
+// The OAuthTokenProvider automatically:
+//   - Acquires tokens using client credentials flow
+//   - Caches tokens to minimize API calls
+//   - Refreshes tokens before expiration (default: 5 minutes before)
+//   - Handles concurrent access safely
+//
+// For manual token management, use OAuthClient:
 //
 //	oauthClient := usps.NewOAuthClient()
 //	req := &models.ClientCredentials{
@@ -70,6 +86,11 @@
 //	    TokenTypeHint: "refresh_token",
 //	}
 //	err := oauthClient.PostRevoke(context.Background(), "client-id", "client-secret", req)
+//
+// For static tokens (not recommended for production), use StaticTokenProvider:
+//
+//	tokenProvider := usps.NewStaticTokenProvider("your-oauth-token")
+//	client := usps.NewClient(tokenProvider)
 //
 // # Configuration
 //
