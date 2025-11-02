@@ -4,7 +4,8 @@ A lightweight, production-grade Go client library for the USPS Addresses 3.0 RES
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/my-eq/go-usps.svg)](https://pkg.go.dev/github.com/my-eq/go-usps)
 [![Go Report Card](https://goreportcard.com/badge/github.com/my-eq/go-usps)](https://goreportcard.com/report/github.com/my-eq/go-usps)
-[![Go Build, Lint and Test](https://github.com/my-eq/go-usps/actions/workflows/go.yml/badge.svg)](https://github.com/my-eq/go-usps/actions/workflows/go.yml)
+[![CI](https://github.com/my-eq/go-usps/actions/workflows/ci.yml/badge.svg)](https://github.com/my-eq/go-usps/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/my-eq/go-usps/actions/workflows/codeql.yml/badge.svg)](https://github.com/my-eq/go-usps/actions/workflows/codeql.yml)
 [![Markdown Lint](https://github.com/my-eq/go-usps/actions/workflows/markdown-lint.yml/badge.svg)](https://github.com/my-eq/go-usps/actions/workflows/markdown-lint.yml)
 
 ## Features
