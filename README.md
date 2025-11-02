@@ -427,7 +427,7 @@ go test -cover ./...
 For complete API documentation, see:
 
 - [USPS Addresses API Documentation](https://developers.usps.com/addressesv3)
-- [USPS OAuth 2.0 API Documentation](https://developers.usps.com/Oauth)
+- [USPS OAuth 2.0 API Documentation](https://developers.usps.com/oauth)
 
 ## License
 
