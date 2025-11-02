@@ -81,7 +81,13 @@ func Parse(input string) ParsedAddress {
 		streetSegment = segments[0]
 	case 2:
 		streetSegment = segments[0]
-		stateSegment = segments[1]
+		// Check if second segment looks like state+ZIP
+		// If not, treat it as city
+		if looksLikeStateZip(segments[1]) {
+			stateSegment = segments[1]
+		} else {
+			citySegments = append(citySegments, segments[1])
+		}
 	default:
 		streetSegment = segments[0]
 		stateSegment = segments[len(segments)-1]
@@ -162,10 +168,8 @@ func splitSegments(input string) []string {
 // isSecondarySegment checks if a segment contains secondary address indicators
 func isSecondarySegment(segment string) bool {
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
-	// Remove periods for matching
-	segmentClean := strings.ReplaceAll(segmentUpper, ".", "")
 
-	// Special handling for hash sign - it can be followed directly by a number
+	// Special case: check if segment starts with # followed by any character
 	if strings.HasPrefix(segmentUpper, "#") {
 		return true
 	}
@@ -415,6 +419,13 @@ func normalizeRegion(segment string) (state, zip, zip4 string, diags []Diagnosti
 		zip4 = matches[3]
 	}
 	return
+}
+
+// looksLikeStateZip checks if a segment appears to contain state and ZIP code
+func looksLikeStateZip(segment string) bool {
+	segment = strings.ToUpper(strings.TrimSpace(segment))
+	matches := stateZipPattern.FindStringSubmatch(segment)
+	return len(matches) > 0
 }
 
 var usStateAbbreviations = map[string]struct{}{
