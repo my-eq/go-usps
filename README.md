@@ -442,6 +442,13 @@ client := usps.NewClient(&VaultTokenProvider{
 Configure timeouts, retries, and transport settings:
 
 ```go
+import (
+    "net/http"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+)
+
 httpClient := &http.Client{
     Timeout: 60 * time.Second,
     Transport: &http.Transport{
@@ -463,6 +470,15 @@ client := usps.NewClient(
 Handle transient failures with intelligent retries:
 
 ```go
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 func GetAddressWithRetry(client *usps.Client, req *models.AddressRequest) (*models.AddressResponse, error) {
     maxRetries := 3
     baseDelay := 1 * time.Second
@@ -499,6 +515,16 @@ func GetAddressWithRetry(client *usps.Client, req *models.AddressRequest) (*mode
 Protect your application from cascading failures:
 
 ```go
+import (
+    "context"
+    "fmt"
+    "sync"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 type CircuitBreaker struct {
     client       *usps.Client
     maxFailures  int
@@ -556,6 +582,15 @@ func (cb *CircuitBreaker) GetAddress(ctx context.Context, req *models.AddressReq
 Add logging, metrics, or tracing to all requests:
 
 ```go
+import (
+    "context"
+    "log"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 type InstrumentedClient struct {
     client  *usps.Client
     logger  *log.Logger
