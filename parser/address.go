@@ -225,13 +225,6 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 		normalizedDesignator := normalizeSecondaryDesignator(rawDesignator)
 		secondary = strings.TrimSpace(normalizedDesignator + " " + remainder)
 		segmentUpper = strings.TrimSpace(segmentUpper[:strings.Index(segmentUpper, matches[0])])
-		if secondary == "" {
-			diags = append(diags, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     "unknown_secondary",
-				Message:  "secondary unit designator not recognized",
-			})
-		}
 	}
 
 	parts := strings.Fields(segmentUpper)
