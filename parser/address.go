@@ -178,8 +178,7 @@ func isSecondarySegment(segment string) bool {
 		if strings.HasPrefix(segmentUpper, prefix+" ") ||
 			strings.HasPrefix(segmentUpper, prefix+"-") ||
 			strings.HasPrefix(segmentUpper, prefix+"#") ||
-			segmentUpper == prefix ||
-			(prefix == "#" && strings.HasPrefix(segmentUpper, "#")) {
+			segmentUpper == prefix {
 			return true
 		}
 	}
