@@ -230,8 +230,10 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 
 	parts := strings.Fields(segmentUpper)
 	normalizedParts := make([]string, 0, len(parts))
+	// Normalize directionals wherever they appear in the address segment.
+	// This allows for valid addresses such as "123 North Main Street" or "East 7th Street".
 	for i, part := range parts {
-		if normalized, ok := directionalMap[part]; ok && (i == 1 || i == len(parts)-1) {
+		if normalized, ok := directionalMap[part]; ok {
 			normalizedParts = append(normalizedParts, normalized)
 			continue
 		}
