@@ -488,7 +488,6 @@ func TestOAuthTokenProvider_TokenExpirationCalculation(t *testing.T) {
 }
 
 func TestOAuthTokenProvider_TokenExpirationShortLifespan(t *testing.T) {
-	now := time.Now()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := models.ProviderAccessTokenResponse{
 			AccessToken: "short-lived-token",
@@ -509,18 +508,20 @@ func TestOAuthTokenProvider_TokenExpirationShortLifespan(t *testing.T) {
 	)
 	provider.oauthClient = NewOAuthClient(WithBaseURL(server.URL))
 
+	// Capture time immediately before GetToken to match calculateExpiration's time.Now() call
+	now := time.Now()
 	if _, err := provider.GetToken(context.Background()); err != nil {
 		t.Fatalf("GetToken failed: %v", err)
 	}
 
 	// The token expires in 30 seconds, but the refresh buffer is 10 minutes.
-	// The provider should clamp the expiration to a minimum of 1 second in the future.
-	// So, expected expiration is now + 1 second.
-	minExpiration := time.Second
-	expectedExpiration := now.Add(minExpiration)
+	// calculateExpiration clamps the buffer to (expiresIn - 1 second) = 29 seconds.
+	// So the actual expiration is: now + 30s - 29s = now + 1s
+	expectedExpiration := now.Add(1 * time.Second)
+	// Allow 2 second tolerance for test execution time
 	if provider.tokenExpiration.Before(expectedExpiration.Add(-2*time.Second)) ||
 		provider.tokenExpiration.After(expectedExpiration.Add(2*time.Second)) {
-		t.Errorf("Token expiration should clamp to near actual expiration. Expected around %v, got %v",
+		t.Errorf("Token expiration should be approximately 1 second from GetToken call. Expected around %v, got %v",
 			expectedExpiration, provider.tokenExpiration)
 	}
 }
