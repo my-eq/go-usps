@@ -485,9 +485,9 @@ func GetAddressWithRetry(client *usps.Client, req *models.AddressRequest) (*mode
     
     for attempt := 0; attempt <= maxRetries; attempt++ {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        defer cancel()
         
         resp, err := client.GetAddress(ctx, req)
+        cancel()
         if err == nil {
             return resp, nil
         }
