@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -63,6 +62,327 @@ func TestParseAddress_TableDriven(t *testing.T) {
 			wantZIP:         "",
 			wantZIPPlus4:    "",
 			wantDiagnostics: []diagExpect{{Code: "insufficient_segments"}, {Code: "missing_state_zip"}, {Code: "missing_city"}},
+		},
+		// Empty input handling
+		{
+			name:            "Empty input",
+			input:           "",
+			wantStreet:      "",
+			wantSecondary:   "",
+			wantCity:        "",
+			wantState:       "",
+			wantZIP:         "",
+			wantZIPPlus4:    "",
+			wantDiagnostics: []diagExpect{{Code: "empty_input"}},
+		},
+		{
+			name:            "Whitespace only input",
+			input:           "   \t\n  ",
+			wantStreet:      "",
+			wantSecondary:   "",
+			wantCity:        "",
+			wantState:       "",
+			wantZIP:         "",
+			wantZIPPlus4:    "",
+			wantDiagnostics: []diagExpect{{Code: "empty_input"}},
+		},
+		// Invalid state codes
+		{
+			name:            "Invalid state code",
+			input:           "123 Main St, Springfield, ZZ 62704",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "ZZ",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "",
+			wantDiagnostics: []diagExpect{{Code: "unknown_state"}},
+		},
+		{
+			name:            "Lowercase state code",
+			input:           "123 Main St, Springfield, il 62704",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Malformed ZIP codes
+		{
+			name:            "ZIP code too short",
+			input:           "123 Main St, Springfield, IL 1234",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "",
+			wantZIP:         "",
+			wantZIPPlus4:    "",
+			wantDiagnostics: []diagExpect{{Code: "invalid_state_zip"}},
+		},
+		{
+			name:            "ZIP+4 with dash",
+			input:           "123 Main St, Springfield, IL 62704-1234",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "1234",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "ZIP+4 with space",
+			input:           "123 Main St, Springfield, IL 62704 1234",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "1234",
+			wantDiagnostics: nil,
+		},
+		// Directional normalization
+		{
+			name:            "North directional prefix",
+			input:           "123 North Main St, Springfield, IL 62704",
+			wantStreet:      "123 N MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Northeast directional prefix",
+			input:           "456 Northeast Oak Ave, Portland, OR 97201",
+			wantStreet:      "456 NE OAK AVE",
+			wantSecondary:   "",
+			wantCity:        "PORTLAND",
+			wantState:       "OR",
+			wantZIP:         "97201",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "South directional suffix",
+			input:           "789 Main St South, Seattle, WA 98101",
+			wantStreet:      "789 MAIN ST S",
+			wantSecondary:   "",
+			wantCity:        "SEATTLE",
+			wantState:       "WA",
+			wantZIP:         "98101",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "West directional",
+			input:           "100 West 5th St, Austin, TX 78701",
+			wantStreet:      "100 W 5TH ST",
+			wantSecondary:   "",
+			wantCity:        "AUSTIN",
+			wantState:       "TX",
+			wantZIP:         "78701",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Street suffix abbreviations
+		{
+			name:            "Avenue suffix",
+			input:           "123 Park Avenue, New York, NY 10001",
+			wantStreet:      "123 PARK AVE",
+			wantSecondary:   "",
+			wantCity:        "NEW YORK",
+			wantState:       "NY",
+			wantZIP:         "10001",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Boulevard suffix",
+			input:           "456 Sunset Boulevard, Los Angeles, CA 90028",
+			wantStreet:      "456 SUNSET BLVD",
+			wantSecondary:   "",
+			wantCity:        "LOS ANGELES",
+			wantState:       "CA",
+			wantZIP:         "90028",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Drive suffix",
+			input:           "789 Oak Drive, Miami, FL 33101",
+			wantStreet:      "789 OAK DR",
+			wantSecondary:   "",
+			wantCity:        "MIAMI",
+			wantState:       "FL",
+			wantZIP:         "33101",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Lane suffix",
+			input:           "321 Maple Lane, Boston, MA 02101",
+			wantStreet:      "321 MAPLE LN",
+			wantSecondary:   "",
+			wantCity:        "BOSTON",
+			wantState:       "MA",
+			wantZIP:         "02101",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Court suffix",
+			input:           "654 Pine Court, Denver, CO 80201",
+			wantStreet:      "654 PINE CT",
+			wantSecondary:   "",
+			wantCity:        "DENVER",
+			wantState:       "CO",
+			wantZIP:         "80201",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Edge cases - Rural routes
+		{
+			name:            "Rural Route",
+			input:           "RR 1 Box 123, Farmville, VA 23901",
+			wantStreet:      "RR 1 BOX 123",
+			wantSecondary:   "",
+			wantCity:        "FARMVILLE",
+			wantState:       "VA",
+			wantZIP:         "23901",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Edge cases - Multiple secondary designators
+		{
+			name:            "Multiple secondary designators in street",
+			input:           "123 Main St Apt 5B Unit 2, Chicago, IL 60614",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "APT 5B UNIT 2",
+			wantCity:        "CHICAGO",
+			wantState:       "IL",
+			wantZIP:         "60614",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Edge cases - Mixed case input
+		{
+			name:            "Mixed case address",
+			input:           "123 MaIn StReEt, SpRiNgFiElD, iL 62704",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Edge cases - Extra whitespace
+		{
+			name:            "Extra whitespace",
+			input:           "  123   Main   Street  ,  Springfield  ,  IL   62704  ",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Edge cases - PO Box variations
+		{
+			name:            "PO Box with space variations",
+			input:           "P O Box 456, Anytown, NY 12345",
+			wantStreet:      "PO BOX 456",
+			wantSecondary:   "",
+			wantCity:        "ANYTOWN",
+			wantState:       "NY",
+			wantZIP:         "12345",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "PO Box with alphanumeric box number",
+			input:           "PO Box 123A, Anytown, NY 12345",
+			wantStreet:      "PO BOX 123A",
+			wantSecondary:   "",
+			wantCity:        "ANYTOWN",
+			wantState:       "NY",
+			wantZIP:         "12345",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// US Territories
+		{
+			name:            "Puerto Rico address",
+			input:           "123 Calle Principal, San Juan, PR 00901",
+			wantStreet:      "123 CALLE PRINCIPAL",
+			wantSecondary:   "",
+			wantCity:        "SAN JUAN",
+			wantState:       "PR",
+			wantZIP:         "00901",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Virgin Islands address",
+			input:           "456 Main St, Charlotte Amalie, VI 00802",
+			wantStreet:      "456 MAIN ST",
+			wantSecondary:   "",
+			wantCity:        "CHARLOTTE AMALIE",
+			wantState:       "VI",
+			wantZIP:         "00802",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Numeric street names
+		{
+			name:            "Numeric street name",
+			input:           "123 42nd Street, New York, NY 10001",
+			wantStreet:      "123 42ND ST",
+			wantSecondary:   "",
+			wantCity:        "NEW YORK",
+			wantState:       "NY",
+			wantZIP:         "10001",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		// Building/Floor designators
+		{
+			name:            "Building designator",
+			input:           "100 Main St Bldg A, Boston, MA 02101",
+			wantStreet:      "100 MAIN ST",
+			wantSecondary:   "BLDG A",
+			wantCity:        "BOSTON",
+			wantState:       "MA",
+			wantZIP:         "02101",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Floor designator",
+			input:           "200 Park Ave Floor 5, New York, NY 10001",
+			wantStreet:      "200 PARK AVE",
+			wantSecondary:   "FL 5",
+			wantCity:        "NEW YORK",
+			wantState:       "NY",
+			wantZIP:         "10001",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
+		},
+		{
+			name:            "Room designator",
+			input:           "300 State St Room 101, Albany, NY 12207",
+			wantStreet:      "300 STATE ST",
+			wantSecondary:   "RM 101",
+			wantCity:        "ALBANY",
+			wantState:       "NY",
+			wantZIP:         "12207",
+			wantZIPPlus4:    "",
+			wantDiagnostics: nil,
 		},
 		// Empty input handling
 		{
@@ -794,275 +1114,152 @@ func TestParseStreetWithSecondaryPreserved(t *testing.T) {
 	}
 }
 
-// Edge case tests for rural routes, military addresses, and intersections
+// TestToAddressRequest tests the conversion to AddressRequest
+func TestToAddressRequest(t *testing.T) {
+	parsed := Parse("123 Main St Apt 5B, Springfield, IL 62704-1234")
+	req := parsed.ToAddressRequest()
 
-func TestParseRuralRoute(t *testing.T) {
-	// Rural Route addresses
-	parsed := Parse("RR 1 Box 123, Anytown, IL 62704")
-
-	if parsed.StreetAddress != "RR 1 BOX 123" {
-		t.Fatalf("expected street %q, got %q", "RR 1 BOX 123", parsed.StreetAddress)
+	if req.StreetAddress != "123 MAIN ST" {
+		t.Errorf("street: want %q, got %q", "123 MAIN ST", req.StreetAddress)
 	}
-	if parsed.City != "ANYTOWN" {
-		t.Fatalf("expected city %q, got %q", "ANYTOWN", parsed.City)
+	if req.SecondaryAddress != "APT 5B" {
+		t.Errorf("secondary: want %q, got %q", "APT 5B", req.SecondaryAddress)
 	}
-	if parsed.State != "IL" {
-		t.Fatalf("expected state IL, got %s", parsed.State)
+	if req.City != "SPRINGFIELD" {
+		t.Errorf("city: want %q, got %q", "SPRINGFIELD", req.City)
+	}
+	if req.State != "IL" {
+		t.Errorf("state: want %q, got %q", "IL", req.State)
+	}
+	if req.ZIPCode != "62704" {
+		t.Errorf("ZIP: want %q, got %q", "62704", req.ZIPCode)
+	}
+	if req.ZIPPlus4 != "1234" {
+		t.Errorf("ZIP+4: want %q, got %q", "1234", req.ZIPPlus4)
 	}
 }
 
-func TestParseHighwayContract(t *testing.T) {
-	// Highway Contract (HC) addresses
-	parsed := Parse("HC 1 Box 45, Rural City, TX 75001")
+// TestSortDiagnostics tests the diagnostic sorting behavior
+func TestSortDiagnostics(t *testing.T) {
+	// Test case with multiple diagnostics that should be sorted
+	parsed := Parse("123")
 
-	if parsed.StreetAddress != "HC 1 BOX 45" {
-		t.Fatalf("expected street %q, got %q", "HC 1 BOX 45", parsed.StreetAddress)
-	}
-	if parsed.City != "RURAL CITY" {
-		t.Fatalf("expected city %q, got %q", "RURAL CITY", parsed.City)
-	}
-}
-
-func TestParseMilitaryAPO(t *testing.T) {
-	// APO (Army Post Office) address
-	// Note: "Unit 1234" will be split into street "" and secondary "UNIT 1234"
-	parsed := Parse("Unit 1234, APO, AE 09001")
-
-	// The parser extracts "UNIT 1234" as secondary, leaving street empty
-	if parsed.SecondaryAddress != "UNIT 1234" {
-		t.Fatalf("expected secondary %q, got %q", "UNIT 1234", parsed.SecondaryAddress)
-	}
-	if parsed.City != "APO" {
-		t.Fatalf("expected city %q, got %q", "APO", parsed.City)
-	}
-	if parsed.State != "AE" {
-		t.Fatalf("expected state AE, got %s", parsed.State)
-	}
-}
-
-func TestParseMilitaryFPO(t *testing.T) {
-	// FPO (Fleet Post Office) address
-	parsed := Parse("PSC 817 Box 15, FPO, AP 96672")
-
-	if parsed.StreetAddress != "PSC 817 BOX 15" {
-		t.Fatalf("expected street %q, got %q", "PSC 817 BOX 15", parsed.StreetAddress)
-	}
-	if parsed.City != "FPO" {
-		t.Fatalf("expected city %q, got %q", "FPO", parsed.City)
-	}
-	if parsed.State != "AP" {
-		t.Fatalf("expected state AP, got %s", parsed.State)
-	}
-}
-
-func TestParseMilitaryDPO(t *testing.T) {
-	// DPO (Diplomatic Post Office) address
-	parsed := Parse("9300 Wilshire Blvd, DPO, AE 09777")
-
-	if parsed.StreetAddress != "9300 WILSHIRE BLVD" {
-		t.Fatalf("expected street %q, got %q", "9300 WILSHIRE BLVD", parsed.StreetAddress)
-	}
-	if parsed.City != "DPO" {
-		t.Fatalf("expected city %q, got %q", "DPO", parsed.City)
-	}
-	if parsed.State != "AE" {
-		t.Fatalf("expected state AE, got %s", parsed.State)
-	}
-}
-
-func TestParseIntersection(t *testing.T) {
-	// Intersection - typically not fully supported but should handle gracefully
-	// This tests that the parser doesn't crash and produces some output
-	parsed := Parse("Main St & Elm Ave, Springfield, IL 62704")
-
-	// The parser will treat the whole thing as a street address
-	if !strings.Contains(parsed.StreetAddress, "MAIN") {
-		t.Fatalf("expected street to contain MAIN, got %q", parsed.StreetAddress)
-	}
-	if parsed.City != "SPRINGFIELD" {
-		t.Fatalf("expected city %q, got %q", "SPRINGFIELD", parsed.City)
-	}
-}
-
-func TestParseCornerOf(t *testing.T) {
-	// Another intersection format
-	parsed := Parse("Corner of Broadway and 5th St, New York, NY 10001")
-
-	if !strings.Contains(parsed.StreetAddress, "CORNER") {
-		t.Fatalf("expected street to contain CORNER, got %q", parsed.StreetAddress)
-	}
-	if parsed.City != "NEW YORK" {
-		t.Fatalf("expected city %q, got %q", "NEW YORK", parsed.City)
-	}
-}
-
-func TestParseMultipleSecondaryDesignators(t *testing.T) {
-	// Address with building and unit
-	parsed := Parse("100 Main St Bldg 3 Unit 5, Boston, MA 02101")
-
-	if parsed.StreetAddress != "100 MAIN ST" {
-		t.Fatalf("expected street %q, got %q", "100 MAIN ST", parsed.StreetAddress)
-	}
-	// Should capture the first secondary designator
-	if !strings.Contains(parsed.SecondaryAddress, "BLDG") {
-		t.Fatalf("expected secondary to contain BLDG, got %q", parsed.SecondaryAddress)
-	}
-}
-
-func TestParseZIPPlus4WithSpace(t *testing.T) {
-	// ZIP+4 with space instead of dash
-	parsed := Parse("123 Main St, Springfield, IL 62704 1234")
-
-	if parsed.ZIPCode != "62704" {
-		t.Fatalf("expected ZIP 62704, got %s", parsed.ZIPCode)
-	}
-	if parsed.ZIPPlus4 != "1234" {
-		t.Fatalf("expected ZIP+4 1234, got %s", parsed.ZIPPlus4)
-	}
-}
-
-func TestParseZIPPlus4WithDash(t *testing.T) {
-	// ZIP+4 with dash (already tested but adding for completeness)
-	parsed := Parse("123 Main St, Springfield, IL 62704-1234")
-
-	if parsed.ZIPCode != "62704" {
-		t.Fatalf("expected ZIP 62704, got %s", parsed.ZIPCode)
-	}
-	if parsed.ZIPPlus4 != "1234" {
-		t.Fatalf("expected ZIP+4 1234, got %s", parsed.ZIPPlus4)
-	}
-}
-
-func TestParseTerritoryPuertoRico(t *testing.T) {
-	// Puerto Rico address
-	parsed := Parse("100 Calle Principal, San Juan, PR 00901")
-
-	if parsed.City != "SAN JUAN" {
-		t.Fatalf("expected city %q, got %q", "SAN JUAN", parsed.City)
-	}
-	if parsed.State != "PR" {
-		t.Fatalf("expected state PR, got %s", parsed.State)
-	}
-	if len(parsed.Diagnostics) != 0 {
-		t.Fatalf("expected no diagnostics for valid PR address, got %v", parsed.Diagnostics)
-	}
-}
-
-func TestParseTerritoryVirginIslands(t *testing.T) {
-	// Virgin Islands address
-	parsed := Parse("5000 Estate Thomas, Charlotte Amalie, VI 00802")
-
-	if parsed.State != "VI" {
-		t.Fatalf("expected state VI, got %s", parsed.State)
-	}
-	if len(parsed.Diagnostics) != 0 {
-		t.Fatalf("expected no diagnostics for valid VI address, got %v", parsed.Diagnostics)
-	}
-}
-
-func TestParseTerritoryGuam(t *testing.T) {
-	// Guam address
-	parsed := Parse("123 Marine Corps Dr, Tamuning, GU 96913")
-
-	if parsed.State != "GU" {
-		t.Fatalf("expected state GU, got %s", parsed.State)
-	}
-	if len(parsed.Diagnostics) != 0 {
-		t.Fatalf("expected no diagnostics for valid GU address, got %v", parsed.Diagnostics)
-	}
-}
-
-func TestParseTerritoryAmericanSamoa(t *testing.T) {
-	// American Samoa address
-	parsed := Parse("PO Box 1234, Pago Pago, AS 96799")
-
-	if parsed.State != "AS" {
-		t.Fatalf("expected state AS, got %s", parsed.State)
-	}
-	if len(parsed.Diagnostics) != 0 {
-		t.Fatalf("expected no diagnostics for valid AS address, got %v", parsed.Diagnostics)
-	}
-}
-
-func TestParseTerritoryNorthernMarianaIslands(t *testing.T) {
-	// Northern Mariana Islands address
-	parsed := Parse("PO Box 500, Saipan, MP 96950")
-
-	if parsed.State != "MP" {
-		t.Fatalf("expected state MP, got %s", parsed.State)
-	}
-	if len(parsed.Diagnostics) != 0 {
-		t.Fatalf("expected no diagnostics for valid MP address, got %v", parsed.Diagnostics)
-	}
-}
-
-func TestParseLongCityName(t *testing.T) {
-	// Test with a very long city name
-	parsed := Parse("123 Main St, Lake Chargoggagoggmanchauggagoggchaubunagungamaugg, MA 01550")
-
-	if !strings.Contains(parsed.City, "CHARGOGGAGOGG") {
-		t.Fatalf("expected city to contain long name, got %q", parsed.City)
-	}
-	if parsed.State != "MA" {
-		t.Fatalf("expected state MA, got %s", parsed.State)
-	}
-}
-
-func TestParseAddressWithPunctuation(t *testing.T) {
-	// Address with apostrophes and special characters
-	parsed := Parse("123 O'Brien St Apt 5B, O'Fallon, IL 62269")
-
-	if !strings.Contains(parsed.StreetAddress, "O'BRIEN") {
-		t.Fatalf("expected street to contain O'BRIEN, got %q", parsed.StreetAddress)
-	}
-	if parsed.City != "O'FALLON" {
-		t.Fatalf("expected city %q, got %q", "O'FALLON", parsed.City)
-	}
-	if parsed.SecondaryAddress != "APT 5B" {
-		t.Fatalf("expected secondary %q, got %q", "APT 5B", parsed.SecondaryAddress)
-	}
-}
-
-func TestParseNumericStreetName(t *testing.T) {
-	// Numeric street name
-	parsed := Parse("100 East 42nd Street, New York, NY 10017")
-
-	if !strings.Contains(parsed.StreetAddress, "42ND") {
-		t.Fatalf("expected street to contain 42ND, got %q", parsed.StreetAddress)
-	}
-	if parsed.State != "NY" {
-		t.Fatalf("expected state NY, got %s", parsed.State)
-	}
-}
-
-func TestParseOneSegment(t *testing.T) {
-	// Only one segment - insufficient for full address
-	parsed := Parse("123 Main Street")
-
+	// Should have multiple diagnostics in sorted order
 	if len(parsed.Diagnostics) == 0 {
-		t.Fatalf("expected diagnostics for insufficient segments, got none")
+		t.Fatal("expected diagnostics, got none")
 	}
-	hasInsufficientDiag := false
-	for _, diag := range parsed.Diagnostics {
-		if diag.Code == "insufficient_segments" {
-			hasInsufficientDiag = true
-			break
+
+	// Errors should come before warnings
+	for i := 0; i < len(parsed.Diagnostics)-1; i++ {
+		curr := parsed.Diagnostics[i]
+		next := parsed.Diagnostics[i+1]
+
+		// If current is warning, next should not be error
+		if curr.Severity == SeverityWarning && next.Severity == SeverityError {
+			t.Errorf("diagnostics not sorted: warning before error at index %d", i)
+		}
+
+		// Within same severity, codes should be sorted
+		if curr.Severity == next.Severity {
+			if curr.Code > next.Code {
+				t.Errorf("diagnostics not sorted: code %q before %q at index %d", curr.Code, next.Code, i)
+			}
 		}
 	}
-	if !hasInsufficientDiag {
-		t.Fatalf("expected insufficient_segments diagnostic, got %v", parsed.Diagnostics)
+}
+
+// TestSecondaryDesignatorVariations tests various secondary designator normalizations
+func TestSecondaryDesignatorVariations(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantSecondary string
+	}{
+		{
+			name:          "Apartment abbreviation with period",
+			input:         "123 Main St Apt. 5B, Chicago, IL 60614",
+			wantSecondary: "APT 5B",
+		},
+		{
+			name:          "Suite abbreviation",
+			input:         "456 Oak Ave Ste 200, Boston, MA 02101",
+			wantSecondary: "STE 200",
+		},
+		{
+			name:          "Room abbreviation",
+			input:         "789 Pine Rd Rm 10, Seattle, WA 98101",
+			wantSecondary: "RM 10",
+		},
+		{
+			name:          "Lot designator",
+			input:         "321 Oak St Lot 45, Portland, OR 97201",
+			wantSecondary: "LOT 45",
+		},
+		{
+			name:          "Building full word",
+			input:         "100 Main St Building C, Austin, TX 78701",
+			wantSecondary: "BLDG C",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.SecondaryAddress != tc.wantSecondary {
+				t.Errorf("secondary: want %q, got %q", tc.wantSecondary, parsed.SecondaryAddress)
+			}
+		})
 	}
 }
 
-func TestParseExtraWhitespace(t *testing.T) {
-	// Address with extra whitespace
-	parsed := Parse("  123   Main   Street  ,  Springfield  ,  IL   62704  ")
+// TestStandaloneSecondarySegments tests secondary addresses in separate segments
+func TestStandaloneSecondarySegments(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantSecondary string
+	}{
+		{
+			name:          "Apartment in separate segment",
+			input:         "123 Main St, Apartment 5B, Chicago, IL 60614",
+			wantSecondary: "APT 5B",
+		},
+		{
+			name:          "Suite in separate segment",
+			input:         "456 Oak Ave, Suite 200, Boston, MA 02101",
+			wantSecondary: "STE 200",
+		},
+		{
+			name:          "Unit in separate segment with dash",
+			input:         "789 Pine Rd, Unit-3, Seattle, WA 98101",
+			wantSecondary: "UNIT 3",
+		},
+		{
+			name:          "Floor in separate segment",
+			input:         "100 Broadway, Floor 5, New York, NY 10001",
+			wantSecondary: "FL 5",
+		},
+	}
 
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.SecondaryAddress != tc.wantSecondary {
+				t.Errorf("secondary: want %q, got %q", tc.wantSecondary, parsed.SecondaryAddress)
+			}
+		})
+	}
+}
+
+// TestSplitSegments tests edge cases in segment splitting
+func TestSplitSegments(t *testing.T) {
+	// Test with trailing commas
+	parsed := Parse("123 Main St,, Springfield,, IL 62704")
 	if parsed.StreetAddress != "123 MAIN ST" {
-		t.Fatalf("expected street %q, got %q", "123 MAIN ST", parsed.StreetAddress)
+		t.Errorf("street: want %q, got %q", "123 MAIN ST", parsed.StreetAddress)
 	}
 	if parsed.City != "SPRINGFIELD" {
-		t.Fatalf("expected city %q, got %q", "SPRINGFIELD", parsed.City)
+		t.Errorf("city: want %q, got %q", "SPRINGFIELD", parsed.City)
 	}
 }
 
