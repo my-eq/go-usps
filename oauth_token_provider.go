@@ -179,7 +179,8 @@ func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) time.Time {
 
 	buffer := p.refreshBuffer
 	if buffer >= expiresInDuration {
-		// Refresh at least one second before expiration when the buffer exceeds the token lifetime.
+		// If the buffer exceeds the token lifetime, clamp it to (token lifetime minus one second),
+		// or zero for tokens with one second or less lifetime.
 		buffer = expiresInDuration - time.Second
 		if buffer < 0 {
 			buffer = 0
