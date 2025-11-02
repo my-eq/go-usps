@@ -36,7 +36,7 @@ import (
     "context"
     "fmt"
     "log"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -44,19 +44,19 @@ import (
 func main() {
     // Create client with automatic OAuth (recommended)
     client := usps.NewClientWithOAuth("your-client-id", "your-client-secret")
-    
+
     // Standardize an address
     req := &models.AddressRequest{
         StreetAddress: "123 Main St",
         City:          "New York",
         State:         "NY",
     }
-    
+
     resp, err := client.GetAddress(context.Background(), req)
     if err != nil {
         log.Fatalf("Error: %v", err)
     }
-    
+
     fmt.Printf("Standardized: %s, %s, %s %s\n",
         resp.Address.StreetAddress,
         resp.Address.City,
@@ -205,25 +205,25 @@ import (
     "fmt"
     "os"
     "time"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
 
 func ValidateShippingAddress(street, city, state, zip string) (*models.AddressResponse, error) {
-    client := usps.NewClientWithOAuth(os.Getenv("USPS_CLIENT_ID"), 
+    client := usps.NewClientWithOAuth(os.Getenv("USPS_CLIENT_ID"),
                                       os.Getenv("USPS_CLIENT_SECRET"))
-    
+
     req := &models.AddressRequest{
         StreetAddress: street,
         City:          city,
         State:         state,
         ZIPCode:       zip,
     }
-    
+
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    
+
     resp, err := client.GetAddress(ctx, req)
     if err != nil {
         if apiErr, ok := err.(*usps.APIError); ok {
@@ -231,7 +231,7 @@ func ValidateShippingAddress(street, city, state, zip string) (*models.AddressRe
         }
         return nil, err
     }
-    
+
     return resp, nil
 }
 ```
@@ -244,46 +244,46 @@ Process a batch of addresses efficiently with concurrent requests:
 import (
     "context"
     "sync"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
 
 func ProcessAddresses(addresses []Address) []Result {
     client := usps.NewClientWithOAuth(clientID, clientSecret)
-    
+
     results := make([]Result, len(addresses))
     var wg sync.WaitGroup
-    
+
     // Process up to 10 addresses concurrently
     semaphore := make(chan struct{}, 10)
-    
+
     for i, addr := range addresses {
         wg.Add(1)
         go func(idx int, address Address) {
             defer wg.Done()
             semaphore <- struct{}{}        // Acquire
             defer func() { <-semaphore }() // Release
-            
+
             req := &models.AddressRequest{
                 StreetAddress: address.Street,
                 City:          address.City,
                 State:         address.State,
             }
-            
+
             resp, err := client.GetAddress(context.Background(), req)
             if err != nil {
                 results[idx] = Result{Error: err}
                 return
             }
-            
+
             results[idx] = Result{
                 Standardized: resp.Address,
                 ZIPPlus4:     resp.Address.ZIPPlus4, // *string pointer
             }
         }(i, addr)
     }
-    
+
     wg.Wait()
     return results
 }
@@ -297,23 +297,23 @@ Help users by automatically filling in ZIP codes:
 func AutoCompleteZIP(street, city, state string) (string, error) {
     // Note: In production, create the client once and reuse it
     client := usps.NewClientWithOAuth(clientID, clientSecret)
-    
+
     req := &models.ZIPCodeRequest{
         StreetAddress: street,
         City:          city,
         State:         state,
     }
-    
+
     resp, err := client.GetZIPCode(context.Background(), req)
     if err != nil {
         return "", err
     }
-    
+
     // Return ZIP+4 format if available
     if resp.ZIPCode.ZIPPlus4 != nil && *resp.ZIPCode.ZIPPlus4 != "" {
         return fmt.Sprintf("%s-%s", resp.ZIPCode.ZIPCode, *resp.ZIPCode.ZIPPlus4), nil
     }
-    
+
     return resp.ZIPCode.ZIPCode, nil
 }
 ```
@@ -326,17 +326,17 @@ Check if an address is a business location:
 func IsBusinessAddress(address *models.AddressRequest) (bool, error) {
     // Note: In production, create the client once and reuse it
     client := usps.NewClientWithOAuth(clientID, clientSecret)
-    
+
     resp, err := client.GetAddress(context.Background(), address)
     if err != nil {
         return false, err
     }
-    
+
     // Check additional info for business indicator
     if resp.AdditionalInfo != nil {
         return resp.AdditionalInfo.Business == "Y", nil
     }
-    
+
     return false, nil
 }
 ```
@@ -350,7 +350,7 @@ import (
     "context"
     "fmt"
     "strings"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -358,12 +358,12 @@ import (
 func FormatMailingLabel(address *models.AddressRequest) (string, error) {
     // Note: In production, create the client once and reuse it
     client := usps.NewClientWithOAuth(clientID, clientSecret)
-    
+
     resp, err := client.GetAddress(context.Background(), address)
     if err != nil {
         return "", err
     }
-    
+
     // Build formatted address
     var lines []string
     if resp.Firm != "" {
@@ -373,12 +373,12 @@ func FormatMailingLabel(address *models.AddressRequest) (string, error) {
     if resp.Address.SecondaryAddress != "" {
         lines = append(lines, resp.Address.SecondaryAddress)
     }
-    
+
     cityLine := fmt.Sprintf("%s, %s %s",
         resp.Address.City,
         resp.Address.State,
         resp.Address.ZIPCode)
-    
+
     if resp.Address.ZIPPlus4 != nil && *resp.Address.ZIPPlus4 != "" {
         cityLine = fmt.Sprintf("%s, %s %s-%s",
             resp.Address.City,
@@ -386,7 +386,7 @@ func FormatMailingLabel(address *models.AddressRequest) (string, error) {
             resp.Address.ZIPCode,
             *resp.Address.ZIPPlus4)
     }
-    
+
     lines = append(lines, cityLine)
     return strings.Join(lines, "\n"), nil
 }
@@ -405,7 +405,7 @@ credential rotation, vault integration, or custom caching:
 import (
     "context"
     "fmt"
-    
+
     vault "github.com/hashicorp/vault/api" // Example: HashiCorp Vault client
 )
 
@@ -424,12 +424,12 @@ func (p *VaultTokenProvider) GetToken(ctx context.Context) (string, error) {
     if err != nil {
         return "", err
     }
-    
+
     token, ok := secret.Data["usps_token"].(string)
     if !ok {
         return "", fmt.Errorf("token not found in vault")
     }
-    
+
     return token, nil
 }
 
@@ -448,7 +448,7 @@ Configure timeouts, retries, and transport settings:
 import (
     "net/http"
     "time"
-    
+
     "github.com/my-eq/go-usps"
 )
 
@@ -477,7 +477,7 @@ import (
     "context"
     "fmt"
     "time"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -485,16 +485,16 @@ import (
 func GetAddressWithRetry(client *usps.Client, req *models.AddressRequest) (*models.AddressResponse, error) {
     maxRetries := 3
     baseDelay := 1 * time.Second
-    
+
     for attempt := 0; attempt <= maxRetries; attempt++ {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        
+
         resp, err := client.GetAddress(ctx, req)
         cancel()
         if err == nil {
             return resp, nil
         }
-        
+
         // Check if error is retryable
         if apiErr, ok := err.(*usps.APIError); ok {
             // Don't retry 4xx errors (except 429)
@@ -502,13 +502,13 @@ func GetAddressWithRetry(client *usps.Client, req *models.AddressRequest) (*mode
                 return nil, err
             }
         }
-        
+
         if attempt < maxRetries {
             delay := baseDelay * time.Duration(1<<uint(attempt)) // Exponential backoff
             time.Sleep(delay)
         }
     }
-    
+
     return nil, fmt.Errorf("max retries exceeded")
 }
 ```
@@ -523,7 +523,7 @@ import (
     "fmt"
     "sync"
     "time"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -532,7 +532,7 @@ type CircuitBreaker struct {
     client       *usps.Client
     maxFailures  int
     resetTimeout time.Duration
-    
+
     mu            sync.Mutex
     failures      int
     lastFailTime  time.Time
@@ -541,41 +541,41 @@ type CircuitBreaker struct {
 
 func (cb *CircuitBreaker) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
     cb.mu.Lock()
-    
+
     // Check if circuit should be reset
     if cb.state == "open" && time.Since(cb.lastFailTime) > cb.resetTimeout {
         cb.state = "half-open"
         cb.failures = 0
     }
-    
+
     if cb.state == "open" {
         cb.mu.Unlock()
         return nil, fmt.Errorf("circuit breaker is open")
     }
-    
+
     cb.mu.Unlock()
-    
+
     // Attempt the request
     resp, err := cb.client.GetAddress(ctx, req)
-    
+
     cb.mu.Lock()
     defer cb.mu.Unlock()
-    
+
     if err != nil {
         cb.failures++
         cb.lastFailTime = time.Now()
-        
+
         if cb.failures >= cb.maxFailures {
             cb.state = "open"
         }
-        
+
         return nil, err
     }
-    
+
     // Success - reset circuit
     cb.failures = 0
     cb.state = "closed"
-    
+
     return resp, nil
 }
 ```
@@ -589,19 +589,20 @@ import (
     "context"
     "log"
     "time"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
 
+// Note: This example shows the pattern. MetricsCollector is a pseudo-code interface.
+// In production, use a concrete metrics library like Prometheus (see Metrics Collection example).
 type InstrumentedClient struct {
     client  *usps.Client
     logger  *log.Logger
-    metrics MetricsCollector // Interface for recording metrics
+    metrics MetricsCollector // Your metrics implementation
 }
 
-// MetricsCollector defines the interface for collecting metrics
-// Example implementations: Prometheus, StatsD, DataDog, etc.
+// MetricsCollector interface (implement this with your metrics library)
 type MetricsCollector interface {
     RecordDuration(name string, duration time.Duration)
     IncrementCounter(name string)
@@ -609,23 +610,23 @@ type MetricsCollector interface {
 
 func (ic *InstrumentedClient) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
     start := time.Now()
-    
+
     ic.logger.Printf("GetAddress request: %s, %s, %s", req.StreetAddress, req.City, req.State)
-    
+
     resp, err := ic.client.GetAddress(ctx, req)
-    
+
     duration := time.Since(start)
     ic.metrics.RecordDuration("get_address", duration)
-    
+
     if err != nil {
         ic.metrics.IncrementCounter("get_address_errors")
         ic.logger.Printf("GetAddress error: %v (duration: %v)", err, duration)
         return nil, err
     }
-    
+
     ic.metrics.IncrementCounter("get_address_success")
     ic.logger.Printf("GetAddress success (duration: %v)", duration)
-    
+
     return resp, nil
 }
 ```
@@ -690,7 +691,7 @@ func (m *MockTokenProvider) GetToken(ctx context.Context) (string, error) {
 func TestAddressValidation(t *testing.T) {
     // Use test environment
     client := usps.NewTestClient(&MockTokenProvider{})
-    
+
     // Your test code here
 }
 ```
@@ -711,7 +712,7 @@ type TokenService struct {
     client   *usps.OAuthClient
     clientID string
     secret   string
-    
+
     mu    sync.RWMutex
     token string
     expiry time.Time
@@ -725,32 +726,32 @@ func (ts *TokenService) GetToken(ctx context.Context) (string, error) {
         return token, nil
     }
     ts.mu.RUnlock()
-    
+
     // Need to refresh
     ts.mu.Lock()
     defer ts.mu.Unlock()
-    
+
     // Double-check after acquiring write lock
     if time.Now().Before(ts.expiry.Add(-5 * time.Minute)) {
         return ts.token, nil
     }
-    
+
     // Fetch new token
     req := &models.ClientCredentials{
         GrantType:    "client_credentials",
         ClientID:     ts.clientID,
         ClientSecret: ts.secret,
     }
-    
+
     result, err := ts.client.PostToken(ctx, req)
     if err != nil {
         return "", err
     }
-    
+
     resp := result.(*models.ProviderAccessTokenResponse)
     ts.token = resp.AccessToken
     ts.expiry = time.Now().Add(time.Duration(resp.ExpiresIn) * time.Second)
-    
+
     return ts.token, nil
 }
 ```
@@ -763,7 +764,7 @@ Distribute requests across multiple client instances:
 import (
     "context"
     "sync/atomic"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -777,7 +778,7 @@ func (lbc *LoadBalancedClient) GetAddress(ctx context.Context, req *models.Addre
     // Round-robin selection
     idx := atomic.AddUint32(&lbc.idx, 1)
     client := lbc.clients[idx%uint32(len(lbc.clients))]
-    
+
     return client.GetAddress(ctx, req)
 }
 
@@ -812,7 +813,7 @@ type cacheEntry struct {
 func (cc *CachedClient) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
     // Create cache key
     key := fmt.Sprintf("%s|%s|%s", req.StreetAddress, req.City, req.State)
-    
+
     // Check cache
     if val, ok := cc.cache.Load(key); ok {
         entry := val.(cacheEntry)
@@ -821,19 +822,19 @@ func (cc *CachedClient) GetAddress(ctx context.Context, req *models.AddressReque
         }
         cc.cache.Delete(key) // Expired
     }
-    
+
     // Fetch from API
     resp, err := cc.client.GetAddress(ctx, req)
     if err != nil {
         return nil, err
     }
-    
+
     // Store in cache
     cc.cache.Store(key, cacheEntry{
         response:  resp,
         timestamp: time.Now(),
     })
-    
+
     return resp, nil
 }
 ```
@@ -847,7 +848,7 @@ import (
     "context"
     "encoding/json"
     "time"
-    
+
     "github.com/go-redis/redis/v8" // Example: go-redis client
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
@@ -861,7 +862,7 @@ type RedisCachedClient struct {
 
 func (rc *RedisCachedClient) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
     key := fmt.Sprintf("usps:address:%s:%s:%s", req.StreetAddress, req.City, req.State)
-    
+
     // Try cache first
     cached, err := rc.redisClient.Get(ctx, key).Result()
     if err == nil {
@@ -870,18 +871,18 @@ func (rc *RedisCachedClient) GetAddress(ctx context.Context, req *models.Address
             return &resp, nil
         }
     }
-    
+
     // Fetch from API
     resp, err := rc.client.GetAddress(ctx, req)
     if err != nil {
         return nil, err
     }
-    
+
     // Store in Redis
     if data, err := json.Marshal(resp); err == nil {
         rc.redisClient.Set(ctx, key, data, rc.ttl)
     }
-    
+
     return resp, nil
 }
 ```
@@ -896,7 +897,7 @@ Prevent exceeding USPS API rate limits:
 import (
     "context"
     "fmt"
-    
+
     "golang.org/x/time/rate"
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
@@ -919,7 +920,7 @@ func (rlc *RateLimitedClient) GetAddress(ctx context.Context, req *models.Addres
     if err := rlc.limiter.Wait(ctx); err != nil {
         return nil, fmt.Errorf("rate limit: %w", err)
     }
-    
+
     return rlc.client.GetAddress(ctx, req)
 }
 ```
@@ -936,7 +937,7 @@ import (
     "fmt"
     "log/slog"
     "time"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -948,17 +949,17 @@ type ObservableClient struct {
 
 func (oc *ObservableClient) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
     requestID := ctx.Value("request_id")
-    
+
     oc.logger.Info("address_validation_start",
         slog.String("request_id", fmt.Sprint(requestID)),
         slog.String("street", req.StreetAddress),
         slog.String("city", req.City),
         slog.String("state", req.State))
-    
+
     start := time.Now()
     resp, err := oc.client.GetAddress(ctx, req)
     duration := time.Since(start)
-    
+
     if err != nil {
         oc.logger.Error("address_validation_failed",
             slog.String("request_id", fmt.Sprint(requestID)),
@@ -966,12 +967,12 @@ func (oc *ObservableClient) GetAddress(ctx context.Context, req *models.AddressR
             slog.String("error", err.Error()))
         return nil, err
     }
-    
+
     oc.logger.Info("address_validation_success",
         slog.String("request_id", fmt.Sprint(requestID)),
         slog.Duration("duration", duration),
         slog.String("zip", resp.Address.ZIPCode))
-    
+
     return resp, nil
 }
 ```
@@ -984,7 +985,7 @@ Track performance and errors with Prometheus:
 import (
     "context"
     "time"
-    
+
     "github.com/prometheus/client_golang/prometheus"
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
@@ -998,7 +999,7 @@ var (
         },
         []string{"endpoint", "status"},
     )
-    
+
     requestsTotal = prometheus.NewCounterVec(
         prometheus.CounterOpts{
             Name: "usps_requests_total",
@@ -1019,18 +1020,18 @@ type MetricsClient struct {
 
 func (mc *MetricsClient) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
     start := time.Now()
-    
+
     resp, err := mc.client.GetAddress(ctx, req)
-    
+
     duration := time.Since(start).Seconds()
     status := "success"
     if err != nil {
         status = "error"
     }
-    
+
     requestDuration.WithLabelValues("get_address", status).Observe(duration)
     requestsTotal.WithLabelValues("get_address", status).Inc()
-    
+
     return resp, err
 }
 ```
@@ -1045,7 +1046,7 @@ import (
     "encoding/json"
     "net/http"
     "time"
-    
+
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
@@ -1054,14 +1055,14 @@ func USPSHealthCheck(client *usps.Client) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
         defer cancel()
-        
+
         // Use a known good address for health check
         req := &models.AddressRequest{
             StreetAddress: "475 L'Enfant Plaza SW",
             City:          "Washington",
             State:         "DC",
         }
-        
+
         _, err := client.GetAddress(ctx, req)
         if err != nil {
             w.WriteHeader(http.StatusServiceUnavailable)
@@ -1071,7 +1072,7 @@ func USPSHealthCheck(client *usps.Client) http.HandlerFunc {
             })
             return
         }
-        
+
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(map[string]string{
             "status": "healthy",
@@ -1172,7 +1173,7 @@ client := usps.NewClient(tokenProvider, usps.WithBaseURL("https://custom.url"))
 ```go
 // Custom scopes
 provider := usps.NewOAuthTokenProvider(
-    clientID, 
+    clientID,
     clientSecret,
     usps.WithOAuthScopes("addresses tracking labels"),
 )
