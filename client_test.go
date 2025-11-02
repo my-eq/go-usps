@@ -156,7 +156,7 @@ func TestGetAddress_Success(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -207,7 +207,7 @@ func TestGetAddress_Error(t *testing.T) {
 				Message: "Invalid address",
 			},
 		}
-		json.NewEncoder(w).Encode(errResp)
+		_ = json.NewEncoder(w).Encode(errResp)
 	}))
 	defer server.Close()
 
@@ -261,7 +261,7 @@ func TestGetCityState_Success(t *testing.T) {
 			ZIPCode: "10001",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -328,7 +328,7 @@ func TestGetZIPCode_Success(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -505,7 +505,7 @@ func TestGetAddress_WithOptionalFields(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -564,7 +564,7 @@ func TestGetCityState_Error(t *testing.T) {
 				Message: "ZIP code not found",
 			},
 		}
-		json.NewEncoder(w).Encode(errResp)
+		_ = json.NewEncoder(w).Encode(errResp)
 	}))
 	defer server.Close()
 
@@ -600,7 +600,7 @@ func TestGetZIPCode_Error(t *testing.T) {
 				Message: "Invalid city",
 			},
 		}
-		json.NewEncoder(w).Encode(errResp)
+		_ = json.NewEncoder(w).Encode(errResp)
 	}))
 	defer server.Close()
 
@@ -636,7 +636,7 @@ func TestHandleResponse_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("invalid json"))
+		_, _ = w.Write([]byte("invalid json"))
 	}))
 	defer server.Close()
 
@@ -658,7 +658,7 @@ func TestHandleResponse_InvalidErrorJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid error json"))
+		_, _ = w.Write([]byte("invalid error json"))
 	}))
 	defer server.Close()
 
@@ -724,7 +724,7 @@ func TestGetAddress_AdditionalInfoAndCorrections(t *testing.T) {
 			Warnings: []string{"Warning 1", "Warning 2"},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
