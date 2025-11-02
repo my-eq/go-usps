@@ -223,7 +223,9 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 		remainder := strings.TrimSpace(matches[2])
 		normalizedDesignator := normalizeSecondaryDesignator(rawDesignator)
 		secondary = strings.TrimSpace(normalizedDesignator + " " + remainder)
-		segmentUpper = strings.TrimSpace(segmentUpper[:strings.Index(segmentUpper, matches[0])])
+		if matchIdxs := secondaryPattern.FindStringSubmatchIndex(segmentUpper); len(matchIdxs) >= 2 {
+			segmentUpper = strings.TrimSpace(segmentUpper[:matchIdxs[0]])
+		}
 	}
 
 	parts := strings.Fields(segmentUpper)
