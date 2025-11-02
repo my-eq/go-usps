@@ -487,6 +487,38 @@ func TestOAuthTokenProvider_TokenExpirationCalculation(t *testing.T) {
 	}
 }
 
+func TestOAuthTokenProvider_TokenExpirationShortLifespan(t *testing.T) {
+	now := time.Now()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := models.ProviderAccessTokenResponse{
+			AccessToken: "short-lived-token",
+			ExpiresIn:   30,
+			TokenType:   "Bearer",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := NewOAuthTokenProvider(
+		"client-id",
+		"client-secret",
+		WithTokenRefreshBuffer(10*time.Minute),
+	)
+	provider.oauthClient = NewOAuthClient(WithBaseURL(server.URL))
+
+	if _, err := provider.GetToken(context.Background()); err != nil {
+		t.Fatalf("GetToken failed: %v", err)
+	}
+
+	expectedExpiration := now.Add(time.Second)
+	if provider.tokenExpiration.Before(expectedExpiration.Add(-2*time.Second)) ||
+		provider.tokenExpiration.After(expectedExpiration.Add(2*time.Second)) {
+		t.Errorf("Token expiration should clamp to near actual expiration. Expected around %v, got %v",
+			expectedExpiration, provider.tokenExpiration)
+	}
+}
+
 func TestOAuthTokenProvider_NoRefreshTokenWhenDisabled(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return a response with refresh token
