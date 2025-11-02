@@ -1623,7 +1623,19 @@ func TestEdgeCasesAndDiagnostics(t *testing.T) {
 	}
 }
 
-// TestToAddressRequest tests conversion to AddressRequest
+// TestSplitSegments tests edge cases in segment splitting
+func TestSplitSegments(t *testing.T) {
+	// Test with trailing commas
+	parsed := Parse("123 Main St,, Springfield,, IL 62704")
+	if parsed.StreetAddress != "123 MAIN ST" {
+		t.Errorf("street: want %q, got %q", "123 MAIN ST", parsed.StreetAddress)
+	}
+	if parsed.City != "SPRINGFIELD" {
+		t.Errorf("city: want %q, got %q", "SPRINGFIELD", parsed.City)
+	}
+}
+
+// TestToAddressRequest tests the conversion to AddressRequest
 func TestToAddressRequest(t *testing.T) {
 	parsed := Parse("123 Main St Apt 5B, Springfield, IL 62704-1234")
 
