@@ -1114,9 +1114,519 @@ func TestParseStreetWithSecondaryPreserved(t *testing.T) {
 	}
 }
 
-// TestToAddressRequest tests the conversion to AddressRequest
+// TestEmptyInput tests empty input handling
+func TestEmptyInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Empty string", ""},
+		{"Whitespace only", "   "},
+		{"Tabs and spaces", "\t  \n  "},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+
+			// Should have empty_input diagnostic
+			foundDiag := false
+			for _, diag := range parsed.Diagnostics {
+				if diag.Code == "empty_input" {
+					foundDiag = true
+					break
+				}
+			}
+			if !foundDiag {
+				t.Errorf("expected empty_input diagnostic, got %v", parsed.Diagnostics)
+			}
+
+			// All fields should be empty
+			if parsed.StreetAddress != "" || parsed.City != "" || parsed.State != "" {
+				t.Errorf("expected all fields empty for empty input")
+			}
+		})
+	}
+}
+
+// TestInvalidStateCodes tests invalid state code handling
+func TestInvalidStateCodes(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedState string
+	}{
+		{"Invalid two-letter state", "123 Main St, Springfield, XX 12345", "XX"},
+		{"Invalid state ZZ", "456 Oak Ave, Boston, ZZ 02101", "ZZ"},
+		{"Three-letter state", "789 Pine Rd, Seattle, WAA 98101", ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+
+			if tc.expectedState != "" && parsed.State != tc.expectedState {
+				t.Errorf("expected state %q, got %q", tc.expectedState, parsed.State)
+			}
+
+			// Should have unknown_state diagnostic for invalid two-letter codes
+			if tc.expectedState != "" {
+				foundDiag := false
+				for _, diag := range parsed.Diagnostics {
+					if diag.Code == "unknown_state" {
+						foundDiag = true
+						break
+					}
+				}
+				if !foundDiag {
+					t.Errorf("expected unknown_state diagnostic, got %v", parsed.Diagnostics)
+				}
+			}
+		})
+	}
+}
+
+// TestMalformedZIPCodes tests malformed ZIP code handling
+func TestMalformedZIPCodes(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		wantZIP         string
+		wantZIPPlus4    string
+		wantDiagnostics bool
+	}{
+		{
+			name:            "Four digit ZIP",
+			input:           "123 Main St, Springfield, IL 1234",
+			wantZIP:         "",
+			wantDiagnostics: true,
+		},
+		{
+			name:            "Six digit ZIP",
+			input:           "123 Main St, Springfield, IL 123456",
+			wantZIP:         "",
+			wantDiagnostics: true,
+		},
+		{
+			name:            "Valid ZIP",
+			input:           "123 Main St, Springfield, IL 62704",
+			wantZIP:         "62704",
+			wantDiagnostics: false,
+		},
+		{
+			name:            "Valid ZIP+4",
+			input:           "123 Main St, Springfield, IL 62704-1234",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "1234",
+			wantDiagnostics: false,
+		},
+		{
+			name:            "ZIP+4 with space",
+			input:           "123 Main St, Springfield, IL 62704 1234",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "1234",
+			wantDiagnostics: false,
+		},
+		{
+			name:            "Invalid ZIP+4 (three digits)",
+			input:           "123 Main St, Springfield, IL 62704-123",
+			wantZIP:         "",
+			wantDiagnostics: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+
+			if parsed.ZIPCode != tc.wantZIP {
+				t.Errorf("ZIP: want %q, got %q", tc.wantZIP, parsed.ZIPCode)
+			}
+			if parsed.ZIPPlus4 != tc.wantZIPPlus4 {
+				t.Errorf("ZIP+4: want %q, got %q", tc.wantZIPPlus4, parsed.ZIPPlus4)
+			}
+
+			if tc.wantDiagnostics && len(parsed.Diagnostics) == 0 {
+				t.Errorf("expected diagnostics for malformed ZIP, got none")
+			}
+		})
+	}
+}
+
+// TestDirectionalNormalization tests directional prefix/suffix normalization
+func TestDirectionalNormalization(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantStreet string
+	}{
+		{
+			name:       "North prefix",
+			input:      "123 North Main St, Springfield, IL 62704",
+			wantStreet: "123 N MAIN ST",
+		},
+		{
+			name:       "South prefix",
+			input:      "456 South Oak Ave, Chicago, IL 60614",
+			wantStreet: "456 S OAK AVE",
+		},
+		{
+			name:       "East prefix",
+			input:      "789 East Elm St, Boston, MA 02101",
+			wantStreet: "789 E ELM ST",
+		},
+		{
+			name:       "West prefix",
+			input:      "321 West Pine Rd, Seattle, WA 98101",
+			wantStreet: "321 W PINE RD",
+		},
+		{
+			name:       "Northeast prefix",
+			input:      "100 Northeast Broadway, Portland, OR 97201",
+			wantStreet: "100 NE BROADWAY",
+		},
+		{
+			name:       "Northwest prefix",
+			input:      "200 Northwest Park Ave, Miami, FL 33101",
+			wantStreet: "200 NW PARK AVE",
+		},
+		{
+			name:       "Southeast prefix",
+			input:      "300 Southeast Ocean Dr, Key West, FL 33040",
+			wantStreet: "300 SE OCEAN DR",
+		},
+		{
+			name:       "Southwest prefix",
+			input:      "400 Southwest Sunset Blvd, Los Angeles, CA 90001",
+			wantStreet: "400 SW SUNSET BLVD",
+		},
+		{
+			name:       "Abbreviated directional N",
+			input:      "500 N Michigan Ave, Chicago, IL 60611",
+			wantStreet: "500 N MICHIGAN AVE",
+		},
+		{
+			name:       "Abbreviated directional S",
+			input:      "600 S State St, Salt Lake City, UT 84101",
+			wantStreet: "600 S STATE ST",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.StreetAddress != tc.wantStreet {
+				t.Errorf("street: want %q, got %q", tc.wantStreet, parsed.StreetAddress)
+			}
+		})
+	}
+}
+
+// TestStreetSuffixAbbreviations tests street suffix normalization
+func TestStreetSuffixAbbreviations(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantStreet string
+	}{
+		{
+			name:       "Street to ST",
+			input:      "123 Main Street, Springfield, IL 62704",
+			wantStreet: "123 MAIN ST",
+		},
+		{
+			name:       "Avenue to AVE",
+			input:      "456 Oak Avenue, Chicago, IL 60614",
+			wantStreet: "456 OAK AVE",
+		},
+		{
+			name:       "Boulevard to BLVD",
+			input:      "789 Sunset Boulevard, Los Angeles, CA 90001",
+			wantStreet: "789 SUNSET BLVD",
+		},
+		{
+			name:       "Drive to DR",
+			input:      "321 Park Drive, Boston, MA 02101",
+			wantStreet: "321 PARK DR",
+		},
+		{
+			name:       "Lane to LN",
+			input:      "100 Memory Lane, Seattle, WA 98101",
+			wantStreet: "100 MEMORY LN",
+		},
+		{
+			name:       "Road to RD",
+			input:      "200 Country Road, Portland, OR 97201",
+			wantStreet: "200 COUNTRY RD",
+		},
+		{
+			name:       "Court to CT",
+			input:      "300 Kings Court, Miami, FL 33101",
+			wantStreet: "300 KINGS CT",
+		},
+		{
+			name:       "Circle to CIR",
+			input:      "400 Winners Circle, Louisville, KY 40201",
+			wantStreet: "400 WINNERS CIR",
+		},
+		{
+			name:       "Place to PL",
+			input:      "500 Market Place, New York, NY 10001",
+			wantStreet: "500 MARKET PL",
+		},
+		{
+			name:       "Terrace to TER",
+			input:      "600 Ocean Terrace, Key West, FL 33040",
+			wantStreet: "600 OCEAN TER",
+		},
+		{
+			name:       "Trail to TRL",
+			input:      "700 Mountain Trail, Denver, CO 80201",
+			wantStreet: "700 MOUNTAIN TRL",
+		},
+		{
+			name:       "Parkway to PKWY",
+			input:      "800 Lake Parkway, Minneapolis, MN 55401",
+			wantStreet: "800 LAKE PKWY",
+		},
+		{
+			name:       "Alley to ALY",
+			input:      "900 Back Alley, San Francisco, CA 94101",
+			wantStreet: "900 BACK ALY",
+		},
+		{
+			name:       "Square to SQ",
+			input:      "1000 Town Square, Boston, MA 02101",
+			wantStreet: "1000 TOWN SQ",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.StreetAddress != tc.wantStreet {
+				t.Errorf("street: want %q, got %q", tc.wantStreet, parsed.StreetAddress)
+			}
+		})
+	}
+}
+
+// TestRuralRoutes tests rural route address handling
+func TestRuralRoutes(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantStreet string
+	}{
+		{
+			name:       "Rural Route abbreviated",
+			input:      "RR 1 Box 123, Springfield, IL 62704",
+			wantStreet: "RR 1 BOX 123",
+		},
+		{
+			name:       "Rural Route full",
+			input:      "Rural Route 2 Box 456, Anytown, NY 12345",
+			wantStreet: "RURAL ROUTE 2 BOX 456",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.StreetAddress != tc.wantStreet {
+				t.Errorf("street: want %q, got %q", tc.wantStreet, parsed.StreetAddress)
+			}
+		})
+	}
+}
+
+// TestMilitaryMail tests APO, FPO, DPO addresses
+func TestMilitaryMail(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantStreet    string
+		wantSecondary string
+		wantCity      string
+		wantState     string
+		wantZIP       string
+	}{
+		{
+			name:          "APO address",
+			input:         "PSC 1234, APO, AE 09123",
+			wantStreet:    "PSC 1234",
+			wantSecondary: "",
+			wantCity:      "APO",
+			wantState:     "AE",
+			wantZIP:       "09123",
+		},
+		{
+			name:          "FPO address - Box is part of street",
+			input:         "PSC 1234 Box 5678, FPO, AP 96543",
+			wantStreet:    "PSC 1234 BOX 5678",
+			wantSecondary: "",
+			wantCity:      "FPO",
+			wantState:     "AP",
+			wantZIP:       "96543",
+		},
+		{
+			name:          "DPO address - Box is part of street",
+			input:         "CMR 456 Box 789, DPO, AE 09876",
+			wantStreet:    "CMR 456 BOX 789",
+			wantSecondary: "",
+			wantCity:      "DPO",
+			wantState:     "AE",
+			wantZIP:       "09876",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.StreetAddress != tc.wantStreet {
+				t.Errorf("street: want %q, got %q", tc.wantStreet, parsed.StreetAddress)
+			}
+			if parsed.SecondaryAddress != tc.wantSecondary {
+				t.Errorf("secondary: want %q, got %q", tc.wantSecondary, parsed.SecondaryAddress)
+			}
+			if parsed.City != tc.wantCity {
+				t.Errorf("city: want %q, got %q", tc.wantCity, parsed.City)
+			}
+			if parsed.State != tc.wantState {
+				t.Errorf("state: want %q, got %q", tc.wantState, parsed.State)
+			}
+			if parsed.ZIPCode != tc.wantZIP {
+				t.Errorf("ZIP: want %q, got %q", tc.wantZIP, parsed.ZIPCode)
+			}
+		})
+	}
+}
+
+// TestIntersections tests intersection address handling
+func TestIntersections(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantStreet string
+	}{
+		{
+			name:       "Intersection with &",
+			input:      "Main St & Oak Ave, Springfield, IL 62704",
+			wantStreet: "MAIN ST & OAK AVE",
+		},
+		{
+			name:       "Intersection with AND",
+			input:      "Elm St and Pine Rd, Chicago, IL 60614",
+			wantStreet: "ELM ST AND PINE RD",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.StreetAddress != tc.wantStreet {
+				t.Errorf("street: want %q, got %q", tc.wantStreet, parsed.StreetAddress)
+			}
+		})
+	}
+}
+
+// TestAdditionalSecondaryDesignators tests various secondary address formats
+func TestAdditionalSecondaryDesignators(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantSecondary string
+	}{
+		{
+			name:          "Room number",
+			input:         "123 Main St, Room 101, Springfield, IL 62704",
+			wantSecondary: "RM 101",
+		},
+		{
+			name:          "Room abbreviated",
+			input:         "456 Oak Ave, Rm 202, Chicago, IL 60614",
+			wantSecondary: "RM 202",
+		},
+		{
+			name:          "Building",
+			input:         "789 Elm St, Building A, Boston, MA 02101",
+			wantSecondary: "BLDG A",
+		},
+		{
+			name:          "Building abbreviated",
+			input:         "321 Pine Rd, Bldg B, Seattle, WA 98101",
+			wantSecondary: "BLDG B",
+		},
+		{
+			name:          "Lot number",
+			input:         "100 Park Dr, Lot 5, Portland, OR 97201",
+			wantSecondary: "LOT 5",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+			if parsed.SecondaryAddress != tc.wantSecondary {
+				t.Errorf("secondary: want %q, got %q", tc.wantSecondary, parsed.SecondaryAddress)
+			}
+		})
+	}
+}
+
+// TestEdgeCasesAndDiagnostics tests additional edge cases
+func TestEdgeCasesAndDiagnostics(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		wantDiagCode    string
+		wantDiagPresent bool
+	}{
+		{
+			name:            "Single segment only",
+			input:           "123 Main Street",
+			wantDiagCode:    "insufficient_segments",
+			wantDiagPresent: true,
+		},
+		{
+			name:            "No street number",
+			input:           "Main Street, Springfield, IL 62704",
+			wantDiagCode:    "",
+			wantDiagPresent: false,
+		},
+		{
+			name:            "State without ZIP",
+			input:           "123 Main St, Springfield, IL",
+			wantDiagCode:    "missing_state_zip",
+			wantDiagPresent: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed := Parse(tc.input)
+
+			if tc.wantDiagPresent {
+				foundDiag := false
+				for _, diag := range parsed.Diagnostics {
+					if diag.Code == tc.wantDiagCode {
+						foundDiag = true
+						break
+					}
+				}
+				if !foundDiag {
+					t.Errorf("expected diagnostic code %q, got %v", tc.wantDiagCode, parsed.Diagnostics)
+				}
+			}
+		})
+	}
+}
+
+// TestToAddressRequest tests conversion to AddressRequest
 func TestToAddressRequest(t *testing.T) {
 	parsed := Parse("123 Main St Apt 5B, Springfield, IL 62704-1234")
+
 	req := parsed.ToAddressRequest()
 
 	if req.StreetAddress != "123 MAIN ST" {
