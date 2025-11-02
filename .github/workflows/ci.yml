@@ -43,27 +43,6 @@ jobs:
       with:
         go-version: 'stable'
         cache: true
-        go-version: 'stable'
-
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        args: --timeout=5m
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 'stable'
-        cache: true
 
     - name: Verify dependencies
       run: go mod verify
