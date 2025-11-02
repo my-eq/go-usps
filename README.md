@@ -1153,6 +1153,59 @@ type AddressAdditionalInfo struct {
 - `S` - Address is deliverable to building, but not to specific unit
 - `N` - Address is not deliverable
 
+#### AddressCorrection
+
+The `Corrections` field provides visibility into all modifications the USPS API made to standardize your
+submitted address according to USPS Publication 28 (Postal Addressing Standards). This is crucial for
+understanding what changed and why.
+
+```go
+type AddressCorrection struct {
+    Code string // Correction type code
+    Text string // Human-readable explanation
+}
+```
+
+**Common Correction Types:**
+
+The USPS API applies various standardizations to ensure addresses are deliverable:
+
+- **Street Abbreviations** - "Street" → "St", "Avenue" → "Ave", "Boulevard" → "Blvd"
+- **Directional Standardization** - "North" → "N", "Southwest" → "SW"
+- **Unit Designators** - "Apartment" → "Apt", "Suite" → "Ste", "Building" → "Bldg"
+- **City Names** - Full city names may be standardized or abbreviated per USPS rules
+- **ZIP+4 Addition** - Missing ZIP+4 codes are added when available
+- **Secondary Address** - Apartment/suite numbers may be reformatted or corrected
+- **Spelling Corrections** - Typos in street names or cities are automatically fixed
+
+**Example Corrections Array:**
+
+```go
+resp, err := client.GetAddress(ctx, req)
+if err != nil {
+    return err
+}
+
+// Check what corrections were made
+for _, correction := range resp.Corrections {
+    fmt.Printf("Correction: %s - %s\n", correction.Code, correction.Text)
+}
+
+// Example output:
+// Correction: st - Street was abbreviated to St
+// Correction: zip4 - ZIP+4 code was added
+```
+
+**Why Corrections Matter:**
+
+1. **Audit Trail** - Track exactly how user input was modified
+2. **User Feedback** - Inform users about changes to improve future submissions
+3. **Data Quality** - Identify patterns in address entry issues
+4. **Compliance** - Ensure addresses meet USPS standards for optimal delivery
+
+The corrections array helps you understand the transformation from submitted address to the final
+standardized USPS format, which is essential for deliverability and reducing returns.
+
 ### Configuration Options
 
 #### Client Options
