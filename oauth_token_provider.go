@@ -31,7 +31,7 @@ type OAuthTokenProvider struct {
 	useRefreshTokens bool
 }
 
-// OAuthTokenOption is a functional option for configuring OAuthTokenProvider
+// OAuthTokenOption is a functional option for configuring OAuthTokenProvider.
 type OAuthTokenOption func(*OAuthTokenProvider)
 
 // WithOAuthScopes sets the OAuth scopes for token requests.
@@ -170,8 +170,24 @@ func (p *OAuthTokenProvider) GetToken(ctx context.Context) (string, error) {
 
 // calculateExpiration calculates the token expiration time with the configured refresh buffer.
 func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) time.Time {
+	if expiresIn <= 0 {
+		// If the server does not provide a valid expiration, force an immediate refresh.
+		return time.Now()
+	}
+
 	expiresInDuration := time.Duration(expiresIn) * time.Second
-	return time.Now().Add(expiresInDuration - p.refreshBuffer)
+
+	buffer := p.refreshBuffer
+	if buffer >= expiresInDuration {
+		// If the buffer exceeds the token lifetime, clamp it to (token lifetime minus one second).
+		if expiresInDuration > time.Second {
+			buffer = expiresInDuration - time.Second
+		} else {
+			buffer = 0
+		}
+	}
+
+	return time.Now().Add(expiresInDuration - buffer)
 }
 
 // acquireTokenLocked acquires a new token using client credentials.
