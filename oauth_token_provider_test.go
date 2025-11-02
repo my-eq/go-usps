@@ -496,7 +496,9 @@ func TestOAuthTokenProvider_TokenExpirationShortLifespan(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Fatalf("failed to encode token response: %v", err)
+		}
 	}))
 	defer server.Close()
 
