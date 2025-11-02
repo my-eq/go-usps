@@ -102,7 +102,7 @@ func TestOAuthTokenProvider_GetToken_Success(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -134,7 +134,7 @@ func TestOAuthTokenProvider_GetToken_Cached(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -170,7 +170,7 @@ func TestOAuthTokenProvider_GetToken_Refresh(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -203,7 +203,7 @@ func TestOAuthTokenProvider_GetToken_Error(t *testing.T) {
 			ErrorDescription: "Client authentication failed",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -219,7 +219,7 @@ func TestOAuthTokenProvider_GetToken_Error(t *testing.T) {
 func TestOAuthTokenProvider_GetToken_WithScopes(t *testing.T) {
 	var receivedScope string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		receivedScope = r.FormValue("scope")
 
 		resp := models.ProviderAccessTokenResponse{
@@ -228,7 +228,7 @@ func TestOAuthTokenProvider_GetToken_WithScopes(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -267,7 +267,7 @@ func TestOAuthTokenProvider_ConcurrentAccess(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -324,7 +324,7 @@ func TestOAuthTokenProvider_WithRefreshTokens(t *testing.T) {
 				TokenType:    "Bearer",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		} else {
 			// Second call - refresh token grant
 			resp := models.ProviderTokensResponse{
@@ -334,7 +334,7 @@ func TestOAuthTokenProvider_WithRefreshTokens(t *testing.T) {
 				TokenType:    "Bearer",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 	}))
 	defer server.Close()
@@ -381,7 +381,8 @@ func TestOAuthTokenProvider_RefreshTokenFallback(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 
-		if callCount == 1 {
+		switch callCount {
+		case 1:
 			// First call - client credentials returns refresh token
 			resp := models.ProviderTokensResponse{
 				AccessToken:  "initial-access-token",
@@ -390,8 +391,8 @@ func TestOAuthTokenProvider_RefreshTokenFallback(t *testing.T) {
 				TokenType:    "Bearer",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-		} else if callCount == 2 {
+			_ = json.NewEncoder(w).Encode(resp)
+		case 2:
 			// Second call - refresh token fails
 			w.WriteHeader(http.StatusBadRequest)
 			resp := models.StandardErrorResponse{
@@ -399,8 +400,8 @@ func TestOAuthTokenProvider_RefreshTokenFallback(t *testing.T) {
 				ErrorDescription: "Refresh token has expired",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-		} else {
+			_ = json.NewEncoder(w).Encode(resp)
+		default:
 			// Third call - fallback to client credentials
 			resp := models.ProviderAccessTokenResponse{
 				AccessToken: "new-access-token",
@@ -408,7 +409,7 @@ func TestOAuthTokenProvider_RefreshTokenFallback(t *testing.T) {
 				TokenType:   "Bearer",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 	}))
 	defer server.Close()
@@ -459,7 +460,7 @@ func TestOAuthTokenProvider_TokenExpirationCalculation(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -496,7 +497,7 @@ func TestOAuthTokenProvider_NoRefreshTokenWhenDisabled(t *testing.T) {
 			TokenType:    "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -519,7 +520,7 @@ func TestOAuthTokenProvider_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return invalid JSON
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`invalid json`))
+		_, _ = w.Write([]byte(`invalid json`))
 	}))
 	defer server.Close()
 
@@ -548,7 +549,7 @@ func TestOAuthTokenProvider_DoubleCheckLocking(t *testing.T) {
 			TokenType:   "Bearer",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

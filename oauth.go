@@ -153,7 +153,7 @@ func (c *OAuthClient) PostToken(ctx context.Context, req interface{}) (interface
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
@@ -229,7 +229,7 @@ func (c *OAuthClient) PostRevoke(ctx context.Context, clientID, clientSecret str
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode >= 400 {
