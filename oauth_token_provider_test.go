@@ -515,10 +515,20 @@ func TestOAuthTokenProvider_TokenExpirationShortLifespan(t *testing.T) {
 	}
 
 	// The token expires in 30 seconds, but the refresh buffer is 10 minutes.
-	// calculateExpiration clamps the buffer to (expiresIn - 1 second) = 29 seconds.
-	// So the actual expiration is: now + 30s - 29s = now + 1s
-	expectedExpiration := now.Add(1 * time.Second)
-	// Allow 2 second tolerance for test execution time
+	// The provider should clamp the expiration to a minimum of 1 second in the future.
+	// So, expected expiration is now + 1 second.
+	// The token expires in 30 seconds, but the refresh buffer is 10 minutes.
+	// The provider should clamp the expiration to a minimum of 1 second in the future.
+	expiresIn := 30 * time.Second
+	refreshBuffer := 10 * time.Minute
+	minExpiration := time.Second
+	expectedExpiration := now.Add(minExpiration)
+	if expiresIn < refreshBuffer {
+		expectedExpiration = now.Add(minExpiration)
+	} else {
+		expectedExpiration = now.Add(expiresIn - refreshBuffer)
+	}
+)
 	if provider.tokenExpiration.Before(expectedExpiration.Add(-2*time.Second)) ||
 		provider.tokenExpiration.After(expectedExpiration.Add(2*time.Second)) {
 		t.Errorf("Token expiration should be approximately 1 second from GetToken call. Expected around %v, got %v",
