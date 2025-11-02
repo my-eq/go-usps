@@ -179,7 +179,12 @@ func isSecondarySegment(segment string) bool {
 			return true
 		}
 		// Check if segment starts with the prefix (possibly followed by space, dash, or number)
-		if strings.HasPrefix(segmentUpper, prefix+" ") ||
+		if prefix == "#" {
+			// Special handling for hash - it can be followed immediately by a number
+			if strings.HasPrefix(segmentUpper, "#") {
+				return true
+			}
+		} else if strings.HasPrefix(segmentUpper, prefix+" ") ||
 			strings.HasPrefix(segmentUpper, prefix+"-") ||
 			strings.HasPrefix(segmentUpper, prefix+"#") ||
 			segmentUpper == prefix {
