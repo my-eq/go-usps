@@ -295,6 +295,7 @@ Help users by automatically filling in ZIP codes:
 
 ```go
 func AutoCompleteZIP(street, city, state string) (string, error) {
+    // Note: In production, create the client once and reuse it
     client := usps.NewClientWithOAuth(clientID, clientSecret)
     
     req := &models.ZIPCodeRequest{
@@ -323,6 +324,7 @@ Check if an address is a business location:
 
 ```go
 func IsBusinessAddress(address *models.AddressRequest) (bool, error) {
+    // Note: In production, create the client once and reuse it
     client := usps.NewClientWithOAuth(clientID, clientSecret)
     
     resp, err := client.GetAddress(context.Background(), address)
@@ -354,6 +356,7 @@ import (
 )
 
 func FormatMailingLabel(address *models.AddressRequest) (string, error) {
+    // Note: In production, create the client once and reuse it
     client := usps.NewClientWithOAuth(clientID, clientSecret)
     
     resp, err := client.GetAddress(context.Background(), address)
@@ -594,7 +597,14 @@ import (
 type InstrumentedClient struct {
     client  *usps.Client
     logger  *log.Logger
-    metrics MetricsCollector
+    metrics MetricsCollector // Interface for recording metrics
+}
+
+// MetricsCollector defines the interface for collecting metrics
+// Example implementations: Prometheus, StatsD, DataDog, etc.
+type MetricsCollector interface {
+    RecordDuration(name string, duration time.Duration)
+    IncrementCounter(name string)
 }
 
 func (ic *InstrumentedClient) GetAddress(ctx context.Context, req *models.AddressRequest) (*models.AddressResponse, error) {
