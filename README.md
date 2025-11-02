@@ -261,7 +261,7 @@ func ProcessAddresses(addresses []Address) []Result {
             
             results[idx] = Result{
                 Standardized: resp.Address,
-                ZIPPlus4:     resp.Address.ZIPPlus4,
+                ZIPPlus4:     resp.Address.ZIPPlus4, // *string pointer
             }
         }(i, addr)
     }
@@ -291,8 +291,8 @@ func AutoCompleteZIP(street, city, state string) (string, error) {
     }
     
     // Return ZIP+4 format if available
-    if resp.ZIPCode.ZIPPlus4 != "" {
-        return fmt.Sprintf("%s-%s", resp.ZIPCode.ZIPCode, resp.ZIPCode.ZIPPlus4), nil
+    if resp.ZIPCode.ZIPPlus4 != nil && *resp.ZIPCode.ZIPPlus4 != "" {
+        return fmt.Sprintf("%s-%s", resp.ZIPCode.ZIPCode, *resp.ZIPCode.ZIPPlus4), nil
     }
     
     return resp.ZIPCode.ZIPCode, nil
@@ -349,12 +349,12 @@ func FormatMailingLabel(address *models.AddressRequest) (string, error) {
         resp.Address.State,
         resp.Address.ZIPCode)
     
-    if resp.Address.ZIPPlus4 != "" {
+    if resp.Address.ZIPPlus4 != nil && *resp.Address.ZIPPlus4 != "" {
         cityLine = fmt.Sprintf("%s, %s %s-%s",
             resp.Address.City,
             resp.Address.State,
             resp.Address.ZIPCode,
-            resp.Address.ZIPPlus4)
+            *resp.Address.ZIPPlus4)
     }
     
     lines = append(lines, cityLine)
@@ -372,6 +372,13 @@ Implement the `TokenProvider` interface for advanced authentication scenarios li
 credential rotation, vault integration, or custom caching:
 
 ```go
+import (
+    "context"
+    "fmt"
+    
+    vault "github.com/hashicorp/vault/api" // Example: HashiCorp Vault client
+)
+
 type TokenProvider interface {
     GetToken(ctx context.Context) (string, error)
 }
@@ -681,6 +688,14 @@ func (ts *TokenService) GetToken(ctx context.Context) (string, error) {
 Distribute requests across multiple client instances:
 
 ```go
+import (
+    "context"
+    "sync/atomic"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 type LoadBalancedClient struct {
     clients []*usps.Client
     idx     uint32
@@ -756,6 +771,16 @@ func (cc *CachedClient) GetAddress(ctx context.Context, req *models.AddressReque
 For distributed caching across multiple instances:
 
 ```go
+import (
+    "context"
+    "encoding/json"
+    "time"
+    
+    "github.com/go-redis/redis/v8" // Example: go-redis client
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 type RedisCachedClient struct {
     client      *usps.Client
     redisClient *redis.Client
@@ -796,6 +821,15 @@ func (rc *RedisCachedClient) GetAddress(ctx context.Context, req *models.Address
 Prevent exceeding USPS API rate limits:
 
 ```go
+import (
+    "context"
+    "fmt"
+    
+    "golang.org/x/time/rate"
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 type RateLimitedClient struct {
     client      *usps.Client
     limiter     *rate.Limiter
@@ -865,6 +899,15 @@ func (oc *ObservableClient) GetAddress(ctx context.Context, req *models.AddressR
 Track performance and errors with Prometheus:
 
 ```go
+import (
+    "context"
+    "time"
+    
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 var (
     requestDuration = prometheus.NewHistogramVec(
         prometheus.HistogramOpts{
@@ -984,13 +1027,13 @@ type AddressResponse struct {
 
 ```go
 type DomesticAddress struct {
-    StreetAddress    string // Standardized street address
-    SecondaryAddress string // Apartment, suite, etc.
-    City             string // City name
-    State            string // 2-letter state code
-    ZIPCode          string // 5-digit ZIP code
-    ZIPPlus4         string // 4-digit ZIP+4 extension
-    Urbanization     string // Urbanization code (Puerto Rico)
+    StreetAddress    string  // Standardized street address
+    SecondaryAddress string  // Apartment, suite, etc.
+    City             string  // City name
+    State            string  // 2-letter state code
+    ZIPCode          string  // 5-digit ZIP code
+    ZIPPlus4         *string // 4-digit ZIP+4 extension (pointer, may be nil)
+    Urbanization     string  // Urbanization code (Puerto Rico)
 }
 ```
 
