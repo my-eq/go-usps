@@ -17,7 +17,7 @@ A lightweight, production-grade Go client library for the USPS Addresses 3.0 RES
 - **💪 Strongly Typed** - Full type safety based on OpenAPI specification
 - **📦 Zero Dependencies** - Only uses Go standard library
 - **🏗️ Production Ready** - Powers critical workflows for millions of users
-- **🧪 Fully Tested** - 88%+ test coverage with comprehensive test suite
+- **🧪 Fully Tested** - 97%+ test coverage with comprehensive test suite
 
 ---
 
@@ -200,6 +200,16 @@ client := usps.NewTestClientWithOAuth(clientID, clientSecret)
 Prevent shipping errors by validating customer addresses during checkout:
 
 ```go
+import (
+    "context"
+    "fmt"
+    "os"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 func ValidateShippingAddress(street, city, state, zip string) (*models.AddressResponse, error) {
     client := usps.NewClientWithOAuth(os.Getenv("USPS_CLIENT_ID"), 
                                       os.Getenv("USPS_CLIENT_SECRET"))
@@ -231,6 +241,14 @@ func ValidateShippingAddress(street, city, state, zip string) (*models.AddressRe
 Process a batch of addresses efficiently with concurrent requests:
 
 ```go
+import (
+    "context"
+    "sync"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 func ProcessAddresses(addresses []Address) []Result {
     client := usps.NewClientWithOAuth(clientID, clientSecret)
     
@@ -326,6 +344,15 @@ func IsBusinessAddress(address *models.AddressRequest) (bool, error) {
 Standardize addresses for mail merge or label printing:
 
 ```go
+import (
+    "context"
+    "fmt"
+    "strings"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 func FormatMailingLabel(address *models.AddressRequest) (string, error) {
     client := usps.NewClientWithOAuth(clientID, clientSecret)
     
@@ -859,6 +886,16 @@ func (rlc *RateLimitedClient) GetAddress(ctx context.Context, req *models.Addres
 Add comprehensive logging for production debugging:
 
 ```go
+import (
+    "context"
+    "fmt"
+    "log/slog"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 type ObservableClient struct {
     client *usps.Client
     logger *slog.Logger
@@ -958,6 +995,16 @@ func (mc *MetricsClient) GetAddress(ctx context.Context, req *models.AddressRequ
 Implement health checks for Kubernetes or load balancers:
 
 ```go
+import (
+    "context"
+    "encoding/json"
+    "net/http"
+    "time"
+    
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
 func USPSHealthCheck(client *usps.Client) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
