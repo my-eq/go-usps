@@ -118,12 +118,11 @@ func (p ParsedAddress) ToAddressRequest() models.AddressRequest {
 	}
 }
 
-var whitespace = regexp.MustCompile(`\s+`)
+// preprocessInput collapses all whitespace and trims leading/trailing spaces.
 
 func preprocessInput(input string) string {
-	trimmed := strings.TrimSpace(input)
-	trimmed = whitespace.ReplaceAllString(trimmed, " ")
-	return trimmed
+	fields := strings.Fields(input)
+	return strings.Join(fields, " ")
 }
 
 func splitSegments(input string) []string {
