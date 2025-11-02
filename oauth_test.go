@@ -66,7 +66,7 @@ func TestPostToken_ClientCredentials_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -121,7 +121,7 @@ func TestPostToken_RefreshToken_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -176,7 +176,7 @@ func TestPostToken_AuthorizationCode_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -217,7 +217,7 @@ func TestPostToken_Error(t *testing.T) {
 			ErrorDescription: "Client credentials are invalid",
 			ErrorURI:         "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -288,7 +288,7 @@ func TestPostRevoke_Error(t *testing.T) {
 			ErrorDescription: "Token is invalid or has expired",
 			ErrorURI:         "https://datatracker.ietf.org/doc/html/rfc7009#section-2.2.1",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -368,7 +368,7 @@ func TestPostToken_InvalidJSON(t *testing.T) {
 	// Mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("invalid json"))
+		_, _ = w.Write([]byte("invalid json"))
 	}))
 	defer server.Close()
 
@@ -484,7 +484,7 @@ func TestPostToken_ErrorInvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid error json"))
+		_, _ = w.Write([]byte("invalid error json"))
 	}))
 	defer server.Close()
 
@@ -554,7 +554,7 @@ func TestPostRevoke_ReadBodyError(t *testing.T) {
 		hj, ok := w.(http.Hijacker)
 		if ok {
 			conn, _, _ := hj.Hijack()
-			conn.Close()
+			_ = conn.Close()
 		}
 	}))
 	defer server.Close()
@@ -576,7 +576,7 @@ func TestPostRevoke_ErrorInvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid error json"))
+		_, _ = w.Write([]byte("invalid error json"))
 	}))
 	defer server.Close()
 
