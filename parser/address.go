@@ -72,6 +72,7 @@ func Parse(input string) ParsedAddress {
 	streetSegment := ""
 	citySegments := []string{}
 	stateSegment := ""
+	secondarySegments := []string{}
 
 	switch len(segments) {
 	case 0:
@@ -84,12 +85,30 @@ func Parse(input string) ParsedAddress {
 	default:
 		streetSegment = segments[0]
 		stateSegment = segments[len(segments)-1]
-		citySegments = segments[1 : len(segments)-1]
+		middleSegments := segments[1 : len(segments)-1]
+
+		// Check middle segments for secondary address indicators
+		for _, seg := range middleSegments {
+			if isSecondarySegment(seg) {
+				secondarySegments = append(secondarySegments, seg)
+			} else {
+				citySegments = append(citySegments, seg)
+			}
+		}
 	}
 
 	street, secondary, streetDiags := normalizeStreet(streetSegment)
 	address.StreetAddress = street
-	address.SecondaryAddress = secondary
+
+	// If secondary was found in street segment, use it; otherwise check secondary segments
+	if secondary != "" {
+		address.SecondaryAddress = secondary
+	} else if len(secondarySegments) > 0 {
+		// Process secondary segments to extract and normalize
+		combinedSecondary := strings.Join(secondarySegments, " ")
+		address.SecondaryAddress = normalizeSecondarySegment(combinedSecondary)
+	}
+
 	address.Diagnostics = append(address.Diagnostics, streetDiags...)
 
 	city, cityDiags := normalizeCity(citySegments)
@@ -138,6 +157,68 @@ func splitSegments(input string) []string {
 		}
 	}
 	return segments
+}
+
+// isSecondarySegment checks if a segment contains secondary address indicators
+func isSecondarySegment(segment string) bool {
+	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
+	// Check if the segment starts with or contains common secondary designators
+	secondaryPrefixes := []string{
+		"APT", "APARTMENT",
+		"UNIT", "SUITE", "STE",
+		"ROOM", "RM",
+		"FLOOR", "FL",
+		"BLDG", "BUILDING",
+		"LOT",
+		"#",
+	}
+
+	for _, prefix := range secondaryPrefixes {
+		// Check if segment starts with the prefix (possibly followed by space, dash, or number)
+		if strings.HasPrefix(segmentUpper, prefix+" ") ||
+			strings.HasPrefix(segmentUpper, prefix+"-") ||
+			strings.HasPrefix(segmentUpper, prefix+"#") ||
+			segmentUpper == prefix ||
+			(prefix == "#" && strings.HasPrefix(segmentUpper, "#")) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// normalizeSecondarySegment normalizes a standalone secondary address segment
+func normalizeSecondarySegment(segment string) string {
+	if segment == "" {
+		return ""
+	}
+
+	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
+
+	// Handle hash sign format (e.g., "#12" or "# 12")
+	if strings.HasPrefix(segmentUpper, "#") {
+		return segmentUpper
+	}
+
+	// Try to match with the secondary pattern
+	if matches := secondaryPattern.FindStringSubmatch(segmentUpper); len(matches) == 3 {
+		rawDesignator := strings.TrimSpace(matches[1])
+		remainder := strings.TrimSpace(matches[2])
+		normalizedDesignator := normalizeSecondaryDesignator(rawDesignator)
+		return strings.TrimSpace(normalizedDesignator + " " + remainder)
+	}
+
+	// If no pattern matches, try to extract designator and number by splitting on whitespace
+	parts := strings.Fields(segmentUpper)
+	if len(parts) >= 2 {
+		// First part might be the designator
+		normalizedDesignator := normalizeSecondaryDesignator(parts[0])
+		remainder := strings.Join(parts[1:], " ")
+		return strings.TrimSpace(normalizedDesignator + " " + remainder)
+	}
+
+	// Return as-is if we can't parse it
+	return segmentUpper
 }
 
 var (
