@@ -162,6 +162,14 @@ func splitSegments(input string) []string {
 // isSecondarySegment checks if a segment contains secondary address indicators
 func isSecondarySegment(segment string) bool {
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
+	// Remove periods for matching
+	segmentClean := strings.ReplaceAll(segmentUpper, ".", "")
+
+	// Special handling for hash sign - it can be followed directly by a number
+	if strings.HasPrefix(segmentUpper, "#") {
+		return true
+	}
+
 	// Check if the segment starts with or contains common secondary designators
 	secondaryPrefixes := []string{
 		"APT", "APARTMENT",
@@ -170,19 +178,14 @@ func isSecondarySegment(segment string) bool {
 		"FLOOR", "FL",
 		"BLDG", "BUILDING",
 		"LOT",
-		"#",
 	}
 
 	for _, prefix := range secondaryPrefixes {
-		// Special handling for "#" which can be followed directly by a number
-		if prefix == "#" && strings.HasPrefix(segmentUpper, "#") {
-			return true
-		}
-		// Check if segment starts with the prefix (possibly followed by space, dash, or number)
-		if strings.HasPrefix(segmentUpper, prefix+" ") ||
-			strings.HasPrefix(segmentUpper, prefix+"-") ||
-			strings.HasPrefix(segmentUpper, prefix+"#") ||
-			segmentUpper == prefix {
+		// Check if segment (with periods removed) starts with the prefix
+		if strings.HasPrefix(segmentClean, prefix+" ") ||
+			strings.HasPrefix(segmentClean, prefix+"-") ||
+			strings.HasPrefix(segmentClean, prefix+"#") ||
+			segmentClean == prefix {
 			return true
 		}
 	}
@@ -197,6 +200,9 @@ func normalizeSecondarySegment(segment string) string {
 	}
 
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
+
+	// Remove periods for normalization
+	segmentUpper = strings.ReplaceAll(segmentUpper, ".", "")
 
 	// Handle hash sign format (e.g., "#12" or "# 12")
 	if strings.HasPrefix(segmentUpper, "#") {
@@ -418,6 +424,8 @@ var usStateAbbreviations = map[string]struct{}{
 	"NJ": {}, "NM": {}, "NY": {}, "NC": {}, "ND": {}, "OH": {}, "OK": {}, "OR": {}, "PA": {}, "RI": {},
 	"SC": {}, "SD": {}, "TN": {}, "TX": {}, "UT": {}, "VT": {}, "VA": {}, "WA": {}, "WV": {}, "WI": {},
 	"WY": {}, "PR": {}, "VI": {}, "GU": {}, "AS": {}, "MP": {},
+	// Military state codes
+	"AA": {}, "AE": {}, "AP": {},
 }
 
 func isValidState(state string) bool {
