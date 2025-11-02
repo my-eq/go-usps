@@ -43,6 +43,7 @@ jobs:
       with:
         go-version: 'stable'
         cache: true
+        go-version: 'stable'
 
     - name: Verify dependencies
       run: go mod verify
