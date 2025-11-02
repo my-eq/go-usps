@@ -168,8 +168,10 @@ func splitSegments(input string) []string {
 // isSecondarySegment checks if a segment contains secondary address indicators
 func isSecondarySegment(segment string) bool {
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
+	// Remove periods for matching
+	segmentClean := strings.ReplaceAll(segmentUpper, ".", "")
 
-	// Special case: check if segment starts with # followed by any character
+	// Special handling for hash sign - it can be followed directly by a number
 	if strings.HasPrefix(segmentUpper, "#") {
 		return true
 	}
