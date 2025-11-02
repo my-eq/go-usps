@@ -173,7 +173,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, queryParams
 
 // handleResponse processes the HTTP response and unmarshals it into the target
 func (c *Client) handleResponse(resp *http.Response, target interface{}) error {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
