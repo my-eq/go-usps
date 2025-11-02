@@ -174,6 +174,10 @@ func isSecondarySegment(segment string) bool {
 	}
 
 	for _, prefix := range secondaryPrefixes {
+		// Special handling for "#" which can be followed directly by a number
+		if prefix == "#" && strings.HasPrefix(segmentUpper, "#") {
+			return true
+		}
 		// Check if segment starts with the prefix (possibly followed by space, dash, or number)
 		if strings.HasPrefix(segmentUpper, prefix+" ") ||
 			strings.HasPrefix(segmentUpper, prefix+"-") ||
@@ -222,21 +226,22 @@ func normalizeSecondarySegment(segment string) string {
 
 var (
 	// secondaryPattern matches secondary address units such as "APT 5B", "SUITE #12", "UNIT 3", etc.
-	// 
+	//
 	// Regex breakdown:
 	//   (?i)                : Case-insensitive match
 	//   \b                  : Word boundary to ensure unit type is a separate word
 	//   (APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)
 	//                       : Capture group 1 - matches the unit type (e.g., "APT", "SUITE", "#")
-	//   \b[ \-#]*           : Matches optional whitespace, hyphens, or "#" after the unit type
+	//   \b[ .\-#]*          : Matches optional whitespace, periods, hyphens, or "#" after the unit type
 	//   (.+)$               : Capture group 2 - matches the unit identifier (e.g., "5B", "12", "3")
-	// 
+	//
 	// Example matches:
 	//   "APT 5B"         => group 1: "APT", group 2: "5B"
 	//   "SUITE #12"      => group 1: "SUITE", group 2: "12"
+	//   "APT. 5B"        => group 1: "APT", group 2: "5B"
 	//   "UNIT-3"         => group 1: "UNIT", group 2: "3"
 	//   "#7"             => group 1: "#", group 2: "7"
-	secondaryPattern = regexp.MustCompile(`(?i)\b(?:(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b[ \-#]*)(.+)$`)
+	secondaryPattern = regexp.MustCompile(`(?i)\b(?:(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b[ .\-#]*)(.+)$`)
 	poBoxPattern     = regexp.MustCompile(`(?i)^P\s*O\s*BOX\s+(\d+[A-Z0-9]*)$`)
 	directionalMap   = map[string]string{
 		"N": "N", "NORTH": "N",
