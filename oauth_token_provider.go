@@ -13,22 +13,28 @@ const (
 	// DefaultTokenRefreshBuffer is the default time before token expiration to refresh.
 	// Tokens are refreshed 5 minutes before they expire by default.
 	DefaultTokenRefreshBuffer = 5 * time.Minute
+
+	// MaxInvalidExpirationRetries is the maximum number of consecutive times
+	// the provider will retry when receiving invalid token expiration (<=0).
+	// After this limit is exceeded, GetToken will return an error.
+	MaxInvalidExpirationRetries = 3
 )
 
 // OAuthTokenProvider is a TokenProvider that automatically manages OAuth 2.0 tokens.
 // It handles token acquisition, caching, and automatic refresh before expiration.
 // This provider is thread-safe and suitable for concurrent use in production environments.
 type OAuthTokenProvider struct {
-	clientID         string
-	clientSecret     string
-	scopes           string
-	refreshBuffer    time.Duration
-	oauthClient      *OAuthClient
-	mutex            sync.RWMutex
-	cachedToken      string
-	tokenExpiration  time.Time
-	refreshToken     string
-	useRefreshTokens bool
+	clientID                  string
+	clientSecret              string
+	scopes                    string
+	refreshBuffer             time.Duration
+	oauthClient               *OAuthClient
+	mutex                     sync.RWMutex
+	cachedToken               string
+	tokenExpiration           time.Time
+	refreshToken              string
+	useRefreshTokens          bool
+	invalidExpirationAttempts int
 }
 
 // OAuthTokenOption is a functional option for configuring OAuthTokenProvider.
@@ -169,11 +175,27 @@ func (p *OAuthTokenProvider) GetToken(ctx context.Context) (string, error) {
 }
 
 // calculateExpiration calculates the token expiration time with the configured refresh buffer.
-func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) time.Time {
+// Returns an error if the server repeatedly returns invalid expiration values (<=0).
+func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) (time.Time, error) {
 	if expiresIn <= 0 {
-		// If the server does not provide a valid expiration, force an immediate refresh.
-		return time.Now()
+		// Track consecutive invalid expiration responses
+		p.invalidExpirationAttempts++
+
+		// If we've exceeded the retry limit, return an error to prevent infinite loops
+		if p.invalidExpirationAttempts > MaxInvalidExpirationRetries {
+			return time.Time{}, fmt.Errorf(
+				"server returned invalid token expiration %d times consecutively (expiresIn <= 0), "+
+					"this may indicate a server misconfiguration",
+				MaxInvalidExpirationRetries,
+			)
+		}
+
+		// Force a near-immediate refresh on invalid expiration, but add a minimal buffer to avoid tight loops
+		return time.Now().Add(time.Second), nil
 	}
+
+	// Reset the counter on successful expiration
+	p.invalidExpirationAttempts = 0
 
 	expiresInDuration := time.Duration(expiresIn) * time.Second
 
@@ -187,7 +209,7 @@ func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) time.Time {
 		}
 	}
 
-	return time.Now().Add(expiresInDuration - buffer)
+	return time.Now().Add(expiresInDuration - buffer), nil
 }
 
 // acquireTokenLocked acquires a new token using client credentials.
@@ -209,12 +231,20 @@ func (p *OAuthTokenProvider) acquireTokenLocked(ctx context.Context) error {
 	switch resp := result.(type) {
 	case *models.ProviderAccessTokenResponse:
 		p.cachedToken = resp.AccessToken
-		p.tokenExpiration = p.calculateExpiration(resp.ExpiresIn)
+		expiration, err := p.calculateExpiration(resp.ExpiresIn)
+		if err != nil {
+			return err
+		}
+		p.tokenExpiration = expiration
 		// Clear refresh token since client credentials don't return one
 		p.refreshToken = ""
 	case *models.ProviderTokensResponse:
 		p.cachedToken = resp.AccessToken
-		p.tokenExpiration = p.calculateExpiration(resp.ExpiresIn)
+		expiration, err := p.calculateExpiration(resp.ExpiresIn)
+		if err != nil {
+			return err
+		}
+		p.tokenExpiration = expiration
 		// Store refresh token if refresh tokens are enabled
 		if p.useRefreshTokens {
 			p.refreshToken = resp.RefreshToken
@@ -253,7 +283,11 @@ func (p *OAuthTokenProvider) refreshTokenLocked(ctx context.Context) error {
 	}
 
 	p.cachedToken = tokensResp.AccessToken
-	p.tokenExpiration = p.calculateExpiration(tokensResp.ExpiresIn)
+	expiration, err := p.calculateExpiration(tokensResp.ExpiresIn)
+	if err != nil {
+		return err
+	}
+	p.tokenExpiration = expiration
 	// Update refresh token
 	p.refreshToken = tokensResp.RefreshToken
 
