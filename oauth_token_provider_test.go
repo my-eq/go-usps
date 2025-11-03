@@ -652,7 +652,9 @@ func TestOAuthTokenProvider_InvalidExpirationRetry(t *testing.T) {
 	}
 
 	// Second and third calls should also succeed but increment counter
+	// Sleep to ensure the cached token expires (it expires in 1 second)
 	for i := 2; i <= MaxInvalidExpirationRetries; i++ {
+		time.Sleep(1100 * time.Millisecond) // Wait for token to expire
 		token, err := provider.GetToken(context.Background())
 		if err != nil {
 			t.Fatalf("GetToken attempt %d should succeed: %v", i, err)
@@ -666,6 +668,7 @@ func TestOAuthTokenProvider_InvalidExpirationRetry(t *testing.T) {
 	}
 
 	// Fourth call should fail due to exceeding retry limit
+	time.Sleep(1100 * time.Millisecond) // Wait for token to expire
 	_, err = provider.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("Expected error after exceeding retry limit, got nil")
@@ -712,6 +715,9 @@ func TestOAuthTokenProvider_InvalidExpirationResetOnSuccess(t *testing.T) {
 
 	// First two calls with invalid expiration
 	for i := 1; i <= 2; i++ {
+		if i > 1 {
+			time.Sleep(1100 * time.Millisecond) // Wait for token to expire
+		}
 		_, err := provider.GetToken(context.Background())
 		if err != nil {
 			t.Fatalf("GetToken attempt %d should succeed: %v", i, err)
@@ -723,6 +729,7 @@ func TestOAuthTokenProvider_InvalidExpirationResetOnSuccess(t *testing.T) {
 	}
 
 	// Third call with valid expiration should reset counter
+	time.Sleep(1100 * time.Millisecond) // Wait for token to expire
 	_, err := provider.GetToken(context.Background())
 	if err != nil {
 		t.Fatalf("GetToken with valid expiration should succeed: %v", err)
