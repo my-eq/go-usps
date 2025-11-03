@@ -138,7 +138,6 @@ func (p ParsedAddress) ToAddressRequest() models.AddressRequest {
 }
 
 // preprocessInput collapses all whitespace and trims leading/trailing spaces.
-
 func preprocessInput(input string) string {
 	fields := strings.Fields(input)
 	return strings.Join(fields, " ")
