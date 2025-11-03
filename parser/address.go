@@ -168,11 +168,11 @@ func splitSegments(input string) []string {
 // isSecondarySegment checks if a segment contains secondary address indicators
 func isSecondarySegment(segment string) bool {
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
-	// Remove periods for matching
+	// Remove periods for matching so variants like "APT." normalize to "APT"
 	segmentClean := strings.ReplaceAll(segmentUpper, ".", "")
 
 	// Special handling for hash sign - it can be followed directly by a number
-	if strings.HasPrefix(segmentUpper, "#") {
+	if strings.HasPrefix(segmentClean, "#") {
 		return true
 	}
 
@@ -187,20 +187,11 @@ func isSecondarySegment(segment string) bool {
 	}
 
 	for _, prefix := range secondaryPrefixes {
-		// Special handling for "#" which can be followed directly by a number
-		if prefix == "#" && strings.HasPrefix(segmentUpper, "#") {
-			return true
-		}
 		// Check if segment starts with the prefix (possibly followed by space, dash, or number)
-		if prefix == "#" {
-			// Special handling for hash - it can be followed immediately by a number
-			if strings.HasPrefix(segmentUpper, "#") {
-				return true
-			}
-		} else if strings.HasPrefix(segmentUpper, prefix+" ") ||
-			strings.HasPrefix(segmentUpper, prefix+"-") ||
-			strings.HasPrefix(segmentUpper, prefix+"#") ||
-			segmentUpper == prefix {
+		if strings.HasPrefix(segmentClean, prefix+" ") ||
+			strings.HasPrefix(segmentClean, prefix+"-") ||
+			strings.HasPrefix(segmentClean, prefix+"#") ||
+			segmentClean == prefix {
 			return true
 		}
 	}

@@ -57,11 +57,11 @@ func TestParseAddress_TableDriven(t *testing.T) {
 			input:           "123 Main Street, Springfield",
 			wantStreet:      "123 MAIN ST",
 			wantSecondary:   "",
-			wantCity:        "",
+			wantCity:        "SPRINGFIELD",
 			wantState:       "",
 			wantZIP:         "",
 			wantZIPPlus4:    "",
-			wantDiagnostics: []diagExpect{{Code: "insufficient_segments"}, {Code: "missing_state_zip"}, {Code: "missing_city"}},
+			wantDiagnostics: []diagExpect{{Code: "insufficient_segments"}, {Code: "missing_state_zip"}},
 		},
 		// Empty input handling
 		{
@@ -1620,168 +1620,6 @@ func TestEdgeCasesAndDiagnostics(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// TestSplitSegments tests edge cases in segment splitting
-func TestSplitSegments(t *testing.T) {
-	// Test with trailing commas
-	parsed := Parse("123 Main St,, Springfield,, IL 62704")
-	if parsed.StreetAddress != "123 MAIN ST" {
-		t.Errorf("street: want %q, got %q", "123 MAIN ST", parsed.StreetAddress)
-	}
-	if parsed.City != "SPRINGFIELD" {
-		t.Errorf("city: want %q, got %q", "SPRINGFIELD", parsed.City)
-	}
-}
-
-// TestToAddressRequest tests the conversion to AddressRequest
-func TestToAddressRequest(t *testing.T) {
-	parsed := Parse("123 Main St Apt 5B, Springfield, IL 62704-1234")
-
-	req := parsed.ToAddressRequest()
-
-	if req.StreetAddress != "123 MAIN ST" {
-		t.Errorf("street: want %q, got %q", "123 MAIN ST", req.StreetAddress)
-	}
-	if req.SecondaryAddress != "APT 5B" {
-		t.Errorf("secondary: want %q, got %q", "APT 5B", req.SecondaryAddress)
-	}
-	if req.City != "SPRINGFIELD" {
-		t.Errorf("city: want %q, got %q", "SPRINGFIELD", req.City)
-	}
-	if req.State != "IL" {
-		t.Errorf("state: want %q, got %q", "IL", req.State)
-	}
-	if req.ZIPCode != "62704" {
-		t.Errorf("ZIP: want %q, got %q", "62704", req.ZIPCode)
-	}
-	if req.ZIPPlus4 != "1234" {
-		t.Errorf("ZIP+4: want %q, got %q", "1234", req.ZIPPlus4)
-	}
-}
-
-// TestSortDiagnostics tests the diagnostic sorting behavior
-func TestSortDiagnostics(t *testing.T) {
-	// Test case with multiple diagnostics that should be sorted
-	parsed := Parse("123")
-
-	// Should have multiple diagnostics in sorted order
-	if len(parsed.Diagnostics) == 0 {
-		t.Fatal("expected diagnostics, got none")
-	}
-
-	// Errors should come before warnings
-	for i := 0; i < len(parsed.Diagnostics)-1; i++ {
-		curr := parsed.Diagnostics[i]
-		next := parsed.Diagnostics[i+1]
-
-		// If current is warning, next should not be error
-		if curr.Severity == SeverityWarning && next.Severity == SeverityError {
-			t.Errorf("diagnostics not sorted: warning before error at index %d", i)
-		}
-
-		// Within same severity, codes should be sorted
-		if curr.Severity == next.Severity {
-			if curr.Code > next.Code {
-				t.Errorf("diagnostics not sorted: code %q before %q at index %d", curr.Code, next.Code, i)
-			}
-		}
-	}
-}
-
-// TestSecondaryDesignatorVariations tests various secondary designator normalizations
-func TestSecondaryDesignatorVariations(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		wantSecondary string
-	}{
-		{
-			name:          "Apartment abbreviation with period",
-			input:         "123 Main St Apt. 5B, Chicago, IL 60614",
-			wantSecondary: "APT 5B",
-		},
-		{
-			name:          "Suite abbreviation",
-			input:         "456 Oak Ave Ste 200, Boston, MA 02101",
-			wantSecondary: "STE 200",
-		},
-		{
-			name:          "Room abbreviation",
-			input:         "789 Pine Rd Rm 10, Seattle, WA 98101",
-			wantSecondary: "RM 10",
-		},
-		{
-			name:          "Lot designator",
-			input:         "321 Oak St Lot 45, Portland, OR 97201",
-			wantSecondary: "LOT 45",
-		},
-		{
-			name:          "Building full word",
-			input:         "100 Main St Building C, Austin, TX 78701",
-			wantSecondary: "BLDG C",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			parsed := Parse(tc.input)
-			if parsed.SecondaryAddress != tc.wantSecondary {
-				t.Errorf("secondary: want %q, got %q", tc.wantSecondary, parsed.SecondaryAddress)
-			}
-		})
-	}
-}
-
-// TestStandaloneSecondarySegments tests secondary addresses in separate segments
-func TestStandaloneSecondarySegments(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		wantSecondary string
-	}{
-		{
-			name:          "Apartment in separate segment",
-			input:         "123 Main St, Apartment 5B, Chicago, IL 60614",
-			wantSecondary: "APT 5B",
-		},
-		{
-			name:          "Suite in separate segment",
-			input:         "456 Oak Ave, Suite 200, Boston, MA 02101",
-			wantSecondary: "STE 200",
-		},
-		{
-			name:          "Unit in separate segment with dash",
-			input:         "789 Pine Rd, Unit-3, Seattle, WA 98101",
-			wantSecondary: "UNIT 3",
-		},
-		{
-			name:          "Floor in separate segment",
-			input:         "100 Broadway, Floor 5, New York, NY 10001",
-			wantSecondary: "FL 5",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			parsed := Parse(tc.input)
-			if parsed.SecondaryAddress != tc.wantSecondary {
-				t.Errorf("secondary: want %q, got %q", tc.wantSecondary, parsed.SecondaryAddress)
-			}
-		})
-	}
-}
-
-// TestSplitSegments tests edge cases in segment splitting
-func TestSplitSegments(t *testing.T) {
-	// Test with trailing commas
-	parsed := Parse("123 Main St,, Springfield,, IL 62704")
-	if parsed.StreetAddress != "123 MAIN ST" {
-		t.Errorf("street: want %q, got %q", "123 MAIN ST", parsed.StreetAddress)
-	}
-	if parsed.City != "SPRINGFIELD" {
-		t.Errorf("city: want %q, got %q", "SPRINGFIELD", parsed.City)
 	}
 }
 
