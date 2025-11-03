@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -671,7 +672,7 @@ func TestOAuthTokenProvider_InvalidExpirationRetry(t *testing.T) {
 	}
 
 	expectedError := fmt.Sprintf("server returned invalid token expiration %d times consecutively", MaxInvalidExpirationRetries)
-	if !contains(err.Error(), expectedError) {
+	if !strings.Contains(err.Error(), expectedError) {
 		t.Errorf("Expected error to contain '%s', got '%s'", expectedError, err.Error())
 	}
 
@@ -735,20 +736,4 @@ func TestOAuthTokenProvider_InvalidExpirationResetOnSuccess(t *testing.T) {
 	if time.Until(provider.tokenExpiration) < 1*time.Hour {
 		t.Errorf("Token should have valid expiration time, got %v", provider.tokenExpiration)
 	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			len(s) > len(substr) && findInString(s, substr)))
-}
-
-func findInString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
