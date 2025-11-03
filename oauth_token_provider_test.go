@@ -515,7 +515,7 @@ func TestOAuthTokenProvider_TokenExpirationShortLifespan(t *testing.T) {
 	}
 
 	// The token expires in 30 seconds, but the refresh buffer is 10 minutes.
-	// The provider should clamp the expiration to a minimum of 1 second in the future.
+	// The provider clamps the buffer so that the expiration is set to now + 1 second (i.e., buffer is reduced).
 	// So, expected expiration is now + 1 second.
 	minExpiration := time.Second
 	expectedExpiration := now.Add(minExpiration)
