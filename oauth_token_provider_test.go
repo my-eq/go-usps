@@ -619,3 +619,136 @@ func TestOAuthTokenProvider_DoubleCheckLocking(t *testing.T) {
 		t.Errorf("Expected at most 2 server calls due to double-check locking, got %d", callCount)
 	}
 }
+
+func TestOAuthTokenProvider_InvalidExpirationRetry(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		// Always return invalid expiration
+		resp := models.ProviderAccessTokenResponse{
+			AccessToken: "test-access-token",
+			ExpiresIn:   0, // Invalid expiration
+			TokenType:   "Bearer",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := NewOAuthTokenProvider("client-id", "client-secret")
+	provider.oauthClient = NewOAuthClient(WithBaseURL(server.URL))
+
+	// First call should succeed despite invalid expiration
+	token1, err := provider.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("First GetToken should succeed: %v", err)
+	}
+	if token1 != "test-access-token" {
+		t.Errorf("Expected token 'test-access-token', got '%s'", token1)
+	}
+	if provider.invalidExpirationAttempts != 1 {
+		t.Errorf("Expected 1 invalid expiration attempt, got %d", provider.invalidExpirationAttempts)
+	}
+
+	// Second and third calls should also succeed but increment counter
+	for i := 2; i <= MaxInvalidExpirationRetries; i++ {
+		token, err := provider.GetToken(context.Background())
+		if err != nil {
+			t.Fatalf("GetToken attempt %d should succeed: %v", i, err)
+		}
+		if token != "test-access-token" {
+			t.Errorf("Expected token 'test-access-token', got '%s'", token)
+		}
+		if provider.invalidExpirationAttempts != i {
+			t.Errorf("Expected %d invalid expiration attempts, got %d", i, provider.invalidExpirationAttempts)
+		}
+	}
+
+	// Fourth call should fail due to exceeding retry limit
+	_, err = provider.GetToken(context.Background())
+	if err == nil {
+		t.Fatal("Expected error after exceeding retry limit, got nil")
+	}
+
+	expectedError := fmt.Sprintf("server returned invalid token expiration %d times consecutively", MaxInvalidExpirationRetries)
+	if !contains(err.Error(), expectedError) {
+		t.Errorf("Expected error to contain '%s', got '%s'", expectedError, err.Error())
+	}
+
+	// Verify we made the expected number of calls
+	if callCount != MaxInvalidExpirationRetries+1 {
+		t.Errorf("Expected %d server calls, got %d", MaxInvalidExpirationRetries+1, callCount)
+	}
+}
+
+func TestOAuthTokenProvider_InvalidExpirationResetOnSuccess(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		var resp models.ProviderAccessTokenResponse
+		if callCount <= 2 {
+			// First two calls return invalid expiration
+			resp = models.ProviderAccessTokenResponse{
+				AccessToken: "test-access-token",
+				ExpiresIn:   0,
+				TokenType:   "Bearer",
+			}
+		} else {
+			// Third call returns valid expiration
+			resp = models.ProviderAccessTokenResponse{
+				AccessToken: "test-access-token",
+				ExpiresIn:   28800, // Valid 8 hours
+				TokenType:   "Bearer",
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := NewOAuthTokenProvider("client-id", "client-secret")
+	provider.oauthClient = NewOAuthClient(WithBaseURL(server.URL))
+
+	// First two calls with invalid expiration
+	for i := 1; i <= 2; i++ {
+		_, err := provider.GetToken(context.Background())
+		if err != nil {
+			t.Fatalf("GetToken attempt %d should succeed: %v", i, err)
+		}
+	}
+
+	if provider.invalidExpirationAttempts != 2 {
+		t.Errorf("Expected 2 invalid expiration attempts, got %d", provider.invalidExpirationAttempts)
+	}
+
+	// Third call with valid expiration should reset counter
+	_, err := provider.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("GetToken with valid expiration should succeed: %v", err)
+	}
+
+	if provider.invalidExpirationAttempts != 0 {
+		t.Errorf("Expected counter to be reset to 0, got %d", provider.invalidExpirationAttempts)
+	}
+
+	// Verify the token is now cached and won't expire immediately
+	if time.Until(provider.tokenExpiration) < 1*time.Hour {
+		t.Errorf("Token should have valid expiration time, got %v", provider.tokenExpiration)
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			len(s) > len(substr) && findInString(s, substr)))
+}
+
+func findInString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
