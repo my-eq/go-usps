@@ -190,8 +190,8 @@ func (p *OAuthTokenProvider) calculateExpiration(expiresIn int) (time.Time, erro
 			)
 		}
 
-		// Force an immediate refresh on invalid expiration
-		return time.Now(), nil
+		// Force a near-immediate refresh on invalid expiration, but add a minimal buffer to avoid tight loops
+		return time.Now().Add(time.Second), nil
 	}
 
 	// Reset the counter on successful expiration
