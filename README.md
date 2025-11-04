@@ -238,56 +238,65 @@ func ValidateShippingAddress(street, city, state, zip string) (*models.AddressRe
 
 ### Bulk Address Processing
 
-Process a batch of addresses efficiently with concurrent requests:
+Process large batches of addresses efficiently with built-in rate limiting and retry logic:
 
 ```go
 import (
     "context"
-    "sync"
+    "fmt"
+    "log"
 
     "github.com/my-eq/go-usps"
     "github.com/my-eq/go-usps/models"
 )
 
-func ProcessAddresses(addresses []Address) []Result {
+func ProcessAddresses(addresses []*models.AddressRequest) {
     client := usps.NewClientWithOAuth(clientID, clientSecret)
 
-    results := make([]Result, len(addresses))
-    var wg sync.WaitGroup
-
-    // Process up to 10 addresses concurrently
-    semaphore := make(chan struct{}, 10)
-
-    for i, addr := range addresses {
-        wg.Add(1)
-        go func(idx int, address Address) {
-            defer wg.Done()
-            semaphore <- struct{}{}        // Acquire
-            defer func() { <-semaphore }() // Release
-
-            req := &models.AddressRequest{
-                StreetAddress: address.Street,
-                City:          address.City,
-                State:         address.State,
-            }
-
-            resp, err := client.GetAddress(context.Background(), req)
+    // Configure bulk processor
+    config := &usps.BulkConfig{
+        MaxConcurrency:    10,  // Process 10 addresses concurrently
+        RequestsPerSecond: 10,  // Rate limit to 10 requests/second
+        MaxRetries:        3,   // Retry failed requests up to 3 times
+        ProgressCallback: func(completed, total int, err error) {
+            fmt.Printf("Progress: %d/%d\n", completed, total)
             if err != nil {
-                results[idx] = Result{Error: err}
-                return
+                log.Printf("Error processing item: %v", err)
             }
-
-            results[idx] = Result{
-                Standardized: resp.Address,
-                ZIPPlus4:     resp.Address.ZIPPlus4, // *string pointer
-            }
-        }(i, addr)
+        },
     }
 
-    wg.Wait()
-    return results
+    processor := usps.NewBulkProcessor(client, config)
+
+    // Process all addresses with automatic rate limiting and retries
+    results := processor.ProcessAddresses(context.Background(), addresses)
+
+    // Handle results
+    for _, result := range results {
+        if result.Error != nil {
+            log.Printf("Address %d failed: %v", result.Index, result.Error)
+            continue
+        }
+
+        fmt.Printf("Standardized: %s, %s, %s %s\n",
+            result.Response.Address.Address.StreetAddress,
+            result.Response.Address.City,
+            result.Response.Address.State,
+            result.Response.Address.ZIPCode)
+    }
 }
 ```
+
+**Key Features:**
+
+- **Automatic rate limiting** - Respects USPS API limits to prevent 429 errors
+- **Concurrent processing** - Configurable worker pool for optimal throughput
+- **Smart retries** - Exponential backoff for transient failures (500, 503, 429)
+- **Progress tracking** - Optional callback for real-time progress monitoring
+- **Context support** - Full cancellation and timeout support
+
+The bulk processor also supports `ProcessCityStates()` and `ProcessZIPCodes()` for bulk
+lookups of other endpoint types.
 
 ### Auto-complete ZIP Codes
 
@@ -889,9 +898,41 @@ func (rc *RedisCachedClient) GetAddress(ctx context.Context, req *models.Address
 
 ### Rate Limiting
 
-#### Token Bucket Algorithm
+#### Built-in Bulk Operations (Recommended)
 
-Prevent exceeding USPS API rate limits:
+For most use cases, use the built-in `BulkProcessor` which includes automatic rate limiting:
+
+```go
+import (
+    "context"
+
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/models"
+)
+
+func ProcessWithRateLimit(addresses []*models.AddressRequest) {
+    client := usps.NewClientWithOAuth(clientID, clientSecret)
+
+    // Configure rate limiting
+    config := &usps.BulkConfig{
+        MaxConcurrency:    10,  // Concurrent workers
+        RequestsPerSecond: 10,  // Automatic rate limiting
+        MaxRetries:        3,   // Retry on rate limit errors
+    }
+
+    processor := usps.NewBulkProcessor(client, config)
+    results := processor.ProcessAddresses(context.Background(), addresses)
+
+    // Handle results...
+}
+```
+
+The bulk processor uses a token bucket algorithm (stdlib only) to enforce rate limits
+and automatically handles 429 responses with exponential backoff.
+
+#### Manual Rate Limiting (Advanced)
+
+For custom implementations, you can build your own rate limiter:
 
 ```go
 import (
