@@ -64,17 +64,7 @@ func TestParseAddress_TableDriven(t *testing.T) {
 			wantDiagnostics: []diagExpect{{Code: "insufficient_segments"}, {Code: "missing_state_zip"}},
 		},
 		// Empty input handling
-		{
-			name:            "Empty input",
-			input:           "",
-			wantStreet:      "",
-			wantSecondary:   "",
-			wantCity:        "",
-			wantState:       "",
-			wantZIP:         "",
-			wantZIPPlus4:    "",
-			wantDiagnostics: []diagExpect{{Code: "empty_input"}},
-		},
+		// (Removed duplicate "Empty input" test case)
 		{
 			name:            "Whitespace only input",
 			input:           "   \t\n  ",
