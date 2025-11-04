@@ -89,7 +89,8 @@ func (a *AddressRequest) String() string {
 
 	if delivery != "" && last != "" {
 		return delivery + ", " + last
-	} else if delivery != "" {
+	}
+	if delivery != "" {
 		return delivery
 	}
 	return last
