@@ -10,6 +10,16 @@ A lightweight, production-grade Go client library for the USPS Addresses 3.0 RES
 
 **Enterprise-grade address validation and standardization for Go applications.**
 
+## Why go-usps?
+
+- **🎯 Complete Coverage** - All USPS Addresses 3.0 and OAuth 2.0 endpoints
+- **🔒 Automatic OAuth** - Built-in token management with automatic refresh
+- **💪 Strongly Typed** - Full type safety based on OpenAPI specification
+- **📦 Zero Dependencies** - Only uses Go standard library
+- **🏗️ Production Ready** - Built with enterprise-grade patterns and best practices
+- **🧪 Fully Tested** - 97%+ test coverage with comprehensive test suite
+
+
 ## Table of Contents
 
 - [Why go-usps?](#why-go-usps)
@@ -57,15 +67,6 @@ A lightweight, production-grade Go client library for the USPS Addresses 3.0 RES
 - [API Documentation](#api-documentation)
 - [License](#license)
 - [Contributing](#contributing)
-
-## Why go-usps?
-
-- **🎯 Complete Coverage** - All USPS Addresses 3.0 and OAuth 2.0 endpoints
-- **🔒 Automatic OAuth** - Built-in token management with automatic refresh
-- **💪 Strongly Typed** - Full type safety based on OpenAPI specification
-- **📦 Zero Dependencies** - Only uses Go standard library
-- **🏗️ Production Ready** - Built with enterprise-grade patterns and best practices
-- **🧪 Fully Tested** - 97%+ test coverage with comprehensive test suite
 
 ---
 
