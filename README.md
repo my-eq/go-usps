@@ -19,7 +19,6 @@ A lightweight, production-grade Go client library for the USPS Addresses 3.0 RES
 - **🏗️ Production Ready** - Built with enterprise-grade patterns and best practices
 - **🧪 Fully Tested** - 97%+ test coverage with comprehensive test suite
 
-
 ## Table of Contents
 
 - [Why go-usps?](#why-go-usps)
