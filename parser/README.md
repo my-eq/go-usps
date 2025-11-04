@@ -15,7 +15,7 @@ a finite state machine (FSM) architecture based on USPS Publication 28 standards
 - **Standardization** - Automatically applies USPS abbreviations (Street → ST, Avenue → AVE)
 - **Diagnostics** - Provides warnings and errors with remediation suggestions
 - **Zero Dependencies** - Uses only Go standard library
-- **High Coverage** - 94.8% test coverage
+- **High Coverage** - Comprehensive test coverage
 
 ## Architecture
 
@@ -260,7 +260,7 @@ Follows Go best practices and conventions throughout.
 
 ## Testing
 
-The parser has comprehensive test coverage (94.8%):
+The parser has comprehensive test coverage:
 
 ```bash
 # Run all tests

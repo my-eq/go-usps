@@ -167,7 +167,7 @@ func joinTokens(parts []string) string {
 	}
 	
 	// Calculate total length to pre-allocate
-	totalLen := len(parts) - 1 // spaces
+	totalLen := len(parts) - 1 // number of spaces
 	for _, part := range parts {
 		totalLen += len(part)
 	}
