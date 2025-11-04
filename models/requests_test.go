@@ -44,6 +44,23 @@ func TestAddressRequest_DeliveryLine(t *testing.T) {
 			want: "789 OAK BLVD UNIT 3",
 		},
 		{
+			name: "urbanization with street",
+			addr: &AddressRequest{
+				Urbanization:  "URB LAS GLADIOLAS",
+				StreetAddress: "123 CALLE A",
+			},
+			want: "URB LAS GLADIOLAS 123 CALLE A",
+		},
+		{
+			name: "urbanization with street and secondary",
+			addr: &AddressRequest{
+				Urbanization:     "URB LAS GLADIOLAS",
+				StreetAddress:    "123 CALLE A",
+				SecondaryAddress: "APT 2",
+			},
+			want: "URB LAS GLADIOLAS 123 CALLE A APT 2",
+		},
+		{
 			name: "firm only (no street)",
 			addr: &AddressRequest{
 				Firm: "ACME CORPORATION",
@@ -94,6 +111,14 @@ func TestAddressRequest_DeliveryLine(t *testing.T) {
 				Firm: "  ACME CORPORATION  ",
 			},
 			want: "ACME CORPORATION",
+		},
+		{
+			name: "urbanization with firm",
+			addr: &AddressRequest{
+				Urbanization: "URB JARDINES",
+				Firm:         "ACME CORPORATION",
+			},
+			want: "URB JARDINES ACME CORPORATION",
 		},
 		{
 			name: "empty address",

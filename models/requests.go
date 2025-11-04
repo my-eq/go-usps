@@ -23,20 +23,28 @@ func (a *AddressRequest) DeliveryLine() string {
 		return ""
 	}
 
-	// Normalize whitespace in street and secondary
+	// Normalize whitespace in components
+	urbanization := strings.TrimSpace(a.Urbanization)
 	street := strings.TrimSpace(a.StreetAddress)
 	secondary := strings.TrimSpace(a.SecondaryAddress)
+	firm := strings.TrimSpace(a.Firm)
 
-	// If we have a street address, combine with secondary if present
-	if street != "" {
-		if secondary != "" {
-			return street + " " + secondary
-		}
-		return street
+	var parts []string
+
+	if urbanization != "" {
+		parts = append(parts, urbanization)
 	}
 
-	// No street address, use firm if available
-	return strings.TrimSpace(a.Firm)
+	if street != "" {
+		parts = append(parts, street)
+		if secondary != "" {
+			parts = append(parts, secondary)
+		}
+	} else if firm != "" {
+		parts = append(parts, firm)
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // LastLine returns the last line of the address (city, state, ZIP+4).
