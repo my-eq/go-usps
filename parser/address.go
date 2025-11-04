@@ -196,7 +196,6 @@ func splitSegments(input string) []string {
 	return segments
 }
 
-// extractSecondary returns a normalized secondary string if the segment contains one; otherwise empty string.
 // isSecondarySegment checks if a segment contains secondary address indicators
 func isSecondarySegment(segment string) bool {
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
