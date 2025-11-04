@@ -20,10 +20,32 @@ const (
 	SeverityWarning DiagnosticSeverity = "warning"
 )
 
+// DiagnosticCode represents the machine-readable identifier for a diagnostic.
+type DiagnosticCode string
+
+const (
+	// DiagnosticCodeEmptyInput indicates the input string contained no address content.
+	DiagnosticCodeEmptyInput DiagnosticCode = "empty_input"
+	// DiagnosticCodeInsufficientSegments indicates the parser found fewer than street, city, and state segments.
+	DiagnosticCodeInsufficientSegments DiagnosticCode = "insufficient_segments"
+	// DiagnosticCodeMissingStreet indicates the primary street segment was absent.
+	DiagnosticCodeMissingStreet DiagnosticCode = "missing_street"
+	// DiagnosticCodeEmptyStreet indicates the parser could not determine a primary street value.
+	DiagnosticCodeEmptyStreet DiagnosticCode = "empty_street"
+	// DiagnosticCodeMissingCity indicates that the city component was not present.
+	DiagnosticCodeMissingCity DiagnosticCode = "missing_city"
+	// DiagnosticCodeMissingStateZIP indicates the state and ZIP portion was missing or malformed.
+	DiagnosticCodeMissingStateZIP DiagnosticCode = "missing_state_zip"
+	// DiagnosticCodeInvalidStateZIP indicates the state/ZIP portion exists but does not match the expected format.
+	DiagnosticCodeInvalidStateZIP DiagnosticCode = "invalid_state_zip"
+	// DiagnosticCodeUnknownState indicates the provided state code is not part of the USPS list.
+	DiagnosticCodeUnknownState DiagnosticCode = "unknown_state"
+)
+
 // Diagnostic describes an issue encountered while normalizing an address.
 type Diagnostic struct {
 	Severity DiagnosticSeverity
-	Code     string
+	Code     DiagnosticCode
 	Message  string
 	Span     TextSpan
 }
@@ -54,7 +76,7 @@ func Parse(input string) ParsedAddress {
 	if strings.TrimSpace(normalized) == "" {
 		address.Diagnostics = append(address.Diagnostics, Diagnostic{
 			Severity: SeverityError,
-			Code:     "empty_input",
+			Code:     DiagnosticCodeEmptyInput,
 			Message:  "address input is empty",
 		})
 		return address
@@ -64,7 +86,7 @@ func Parse(input string) ParsedAddress {
 	if len(segments) < 3 {
 		address.Diagnostics = append(address.Diagnostics, Diagnostic{
 			Severity: SeverityError,
-			Code:     "insufficient_segments",
+			Code:     DiagnosticCodeInsufficientSegments,
 			Message:  "expected street, city, and state segments separated by commas",
 		})
 	}
@@ -314,6 +336,55 @@ func looksLikeSecondaryValue(value string) bool {
 	return false
 }
 
+type directionalToken string
+type directionalValue string
+
+const (
+	directionalNorth     directionalValue = "N"
+	directionalSouth     directionalValue = "S"
+	directionalEast      directionalValue = "E"
+	directionalWest      directionalValue = "W"
+	directionalNorthEast directionalValue = "NE"
+	directionalNorthWest directionalValue = "NW"
+	directionalSouthEast directionalValue = "SE"
+	directionalSouthWest directionalValue = "SW"
+)
+
+type streetSuffixToken string
+type streetSuffixValue string
+
+const (
+	streetSuffixAlley     streetSuffixValue = "ALY"
+	streetSuffixAvenue    streetSuffixValue = "AVE"
+	streetSuffixBoulevard streetSuffixValue = "BLVD"
+	streetSuffixCircle    streetSuffixValue = "CIR"
+	streetSuffixCourt     streetSuffixValue = "CT"
+	streetSuffixDrive     streetSuffixValue = "DR"
+	streetSuffixLane      streetSuffixValue = "LN"
+	streetSuffixParkway   streetSuffixValue = "PKWY"
+	streetSuffixPlace     streetSuffixValue = "PL"
+	streetSuffixRoad      streetSuffixValue = "RD"
+	streetSuffixSquare    streetSuffixValue = "SQ"
+	streetSuffixStreet    streetSuffixValue = "ST"
+	streetSuffixTerrace   streetSuffixValue = "TER"
+	streetSuffixTrail     streetSuffixValue = "TRL"
+	streetSuffixWay       streetSuffixValue = "WAY"
+)
+
+type secondaryDesignatorToken string
+type secondaryDesignatorValue string
+
+const (
+	secondaryDesignatorApartment secondaryDesignatorValue = "APT"
+	secondaryDesignatorUnit      secondaryDesignatorValue = "UNIT"
+	secondaryDesignatorSuite     secondaryDesignatorValue = "STE"
+	secondaryDesignatorRoom      secondaryDesignatorValue = "RM"
+	secondaryDesignatorFloor     secondaryDesignatorValue = "FL"
+	secondaryDesignatorBuilding  secondaryDesignatorValue = "BLDG"
+	secondaryDesignatorLot       secondaryDesignatorValue = "LOT"
+	secondaryDesignatorPOBox     secondaryDesignatorValue = "PO BOX"
+)
+
 var (
 	// secondaryPattern matches secondary address units such as "APT 5B", "SUITE #12", "UNIT 3", etc.
 	//
@@ -334,47 +405,55 @@ var (
 	secondaryPattern           = regexp.MustCompile(`(?i)\b(?:(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b[ .\-#]*)(.+)$`)
 	secondaryDesignatorPattern = regexp.MustCompile(`(?i)\b(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b`)
 	poBoxPattern               = regexp.MustCompile(`(?i)^P\s*O\s*BOX\s+(\d+[A-Z0-9]*)$`)
-	directionalMap             = map[string]string{
-		"N": "N", "NORTH": "N",
-		"S": "S", "SOUTH": "S",
-		"E": "E", "EAST": "E",
-		"W": "W", "WEST": "W",
-		"NE": "NE", "NORTHEAST": "NE",
-		"NW": "NW", "NORTHWEST": "NW",
-		"SE": "SE", "SOUTHEAST": "SE",
-		"SW": "SW", "SOUTHWEST": "SW",
+	directionalMap             = map[directionalToken]directionalValue{
+		directionalToken("N"):         directionalNorth,
+		directionalToken("NORTH"):     directionalNorth,
+		directionalToken("S"):         directionalSouth,
+		directionalToken("SOUTH"):     directionalSouth,
+		directionalToken("E"):         directionalEast,
+		directionalToken("EAST"):      directionalEast,
+		directionalToken("W"):         directionalWest,
+		directionalToken("WEST"):      directionalWest,
+		directionalToken("NE"):        directionalNorthEast,
+		directionalToken("NORTHEAST"): directionalNorthEast,
+		directionalToken("NW"):        directionalNorthWest,
+		directionalToken("NORTHWEST"): directionalNorthWest,
+		directionalToken("SE"):        directionalSouthEast,
+		directionalToken("SOUTHEAST"): directionalSouthEast,
+		directionalToken("SW"):        directionalSouthWest,
+		directionalToken("SOUTHWEST"): directionalSouthWest,
 	}
-	streetSuffixMap = map[string]string{
-		"ALLEY":     "ALY",
-		"AVENUE":    "AVE",
-		"BOULEVARD": "BLVD",
-		"CIRCLE":    "CIR",
-		"COURT":     "CT",
-		"DRIVE":     "DR",
-		"LANE":      "LN",
-		"PARKWAY":   "PKWY",
-		"PLACE":     "PL",
-		"ROAD":      "RD",
-		"SQUARE":    "SQ",
-		"STREET":    "ST",
-		"TERRACE":   "TER",
-		"TRAIL":     "TRL",
-		"WAY":       "WAY",
+	streetSuffixMap = map[streetSuffixToken]streetSuffixValue{
+		streetSuffixToken("ALLEY"):     streetSuffixAlley,
+		streetSuffixToken("AVENUE"):    streetSuffixAvenue,
+		streetSuffixToken("BOULEVARD"): streetSuffixBoulevard,
+		streetSuffixToken("CIRCLE"):    streetSuffixCircle,
+		streetSuffixToken("COURT"):     streetSuffixCourt,
+		streetSuffixToken("DRIVE"):     streetSuffixDrive,
+		streetSuffixToken("LANE"):      streetSuffixLane,
+		streetSuffixToken("PARKWAY"):   streetSuffixParkway,
+		streetSuffixToken("PLACE"):     streetSuffixPlace,
+		streetSuffixToken("ROAD"):      streetSuffixRoad,
+		streetSuffixToken("SQUARE"):    streetSuffixSquare,
+		streetSuffixToken("STREET"):    streetSuffixStreet,
+		streetSuffixToken("TERRACE"):   streetSuffixTerrace,
+		streetSuffixToken("TRAIL"):     streetSuffixTrail,
+		streetSuffixToken("WAY"):       streetSuffixWay,
 	}
-	secondaryMap = map[string]string{
-		"APT":       "APT",
-		"APARTMENT": "APT",
-		"UNIT":      "UNIT",
-		"STE":       "STE",
-		"SUITE":     "STE",
-		"ROOM":      "RM",
-		"RM":        "RM",
-		"FL":        "FL",
-		"FLOOR":     "FL",
-		"BLDG":      "BLDG",
-		"BUILDING":  "BLDG",
-		"LOT":       "LOT",
-		"PO BOX":    "PO BOX",
+	secondaryMap = map[secondaryDesignatorToken]secondaryDesignatorValue{
+		secondaryDesignatorToken("APT"):       secondaryDesignatorApartment,
+		secondaryDesignatorToken("APARTMENT"): secondaryDesignatorApartment,
+		secondaryDesignatorToken("UNIT"):      secondaryDesignatorUnit,
+		secondaryDesignatorToken("STE"):       secondaryDesignatorSuite,
+		secondaryDesignatorToken("SUITE"):     secondaryDesignatorSuite,
+		secondaryDesignatorToken("ROOM"):      secondaryDesignatorRoom,
+		secondaryDesignatorToken("RM"):        secondaryDesignatorRoom,
+		secondaryDesignatorToken("FL"):        secondaryDesignatorFloor,
+		secondaryDesignatorToken("FLOOR"):     secondaryDesignatorFloor,
+		secondaryDesignatorToken("BLDG"):      secondaryDesignatorBuilding,
+		secondaryDesignatorToken("BUILDING"):  secondaryDesignatorBuilding,
+		secondaryDesignatorToken("LOT"):       secondaryDesignatorLot,
+		secondaryDesignatorToken("PO BOX"):    secondaryDesignatorPOBox,
 	}
 )
 
@@ -382,7 +461,7 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 	if segment == "" {
 		return "", "", []Diagnostic{{
 			Severity: SeverityError,
-			Code:     "missing_street",
+			Code:     DiagnosticCodeMissingStreet,
 			Message:  "street address segment is missing",
 		}}
 	}
@@ -418,12 +497,12 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 	// Normalize directionals wherever they appear in the address segment.
 	// This allows for valid addresses such as "123 North Main Street" or "East 7th Street".
 	for i, part := range parts {
-		if normalized, ok := directionalMap[part]; ok {
-			normalizedParts = append(normalizedParts, normalized)
+		if normalized, ok := directionalMap[directionalToken(part)]; ok {
+			normalizedParts = append(normalizedParts, string(normalized))
 			continue
 		}
-		if normalized, ok := streetSuffixMap[part]; ok && i == len(parts)-1 {
-			normalizedParts = append(normalizedParts, normalized)
+		if normalized, ok := streetSuffixMap[streetSuffixToken(part)]; ok && i == len(parts)-1 {
+			normalizedParts = append(normalizedParts, string(normalized))
 			continue
 		}
 		normalizedParts = append(normalizedParts, part)
@@ -433,7 +512,7 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 	if street == "" {
 		diags = append(diags, Diagnostic{
 			Severity: SeverityError,
-			Code:     "empty_street",
+			Code:     DiagnosticCodeEmptyStreet,
 			Message:  "could not determine primary street address",
 		})
 	}
@@ -442,11 +521,12 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 
 func normalizeSecondaryDesignator(designator string) string {
 	designator = strings.ToUpper(strings.TrimSpace(designator))
-	if mapped, ok := secondaryMap[designator]; ok {
-		return mapped
+	if mapped, ok := secondaryMap[secondaryDesignatorToken(designator)]; ok {
+		return string(mapped)
 	}
-	if mapped, ok := secondaryMap[strings.ReplaceAll(designator, ".", "")]; ok {
-		return mapped
+	cleaned := strings.ReplaceAll(designator, ".", "")
+	if mapped, ok := secondaryMap[secondaryDesignatorToken(cleaned)]; ok {
+		return string(mapped)
 	}
 	return designator
 }
@@ -455,7 +535,7 @@ func normalizeCity(segments []string) (string, []Diagnostic) {
 	if len(segments) == 0 {
 		return "", []Diagnostic{{
 			Severity: SeverityWarning,
-			Code:     "missing_city",
+			Code:     DiagnosticCodeMissingCity,
 			Message:  "city component missing; USPS Publication 28 requires a city or acceptable city name",
 		}}
 	}
@@ -471,7 +551,7 @@ func normalizeRegion(segment string) (state, zip, zip4 string, diags []Diagnosti
 	if segment == "" {
 		diags = append(diags, Diagnostic{
 			Severity: SeverityError,
-			Code:     "missing_state_zip",
+			Code:     DiagnosticCodeMissingStateZIP,
 			Message:  "state and ZIP segment missing",
 		})
 		return
@@ -481,10 +561,10 @@ func normalizeRegion(segment string) (state, zip, zip4 string, diags []Diagnosti
 	matches := stateZipPattern.FindStringSubmatch(segment)
 	if len(matches) == 0 {
 		hasDigits := strings.IndexFunc(segment, unicode.IsDigit) >= 0
-		code := "invalid_state_zip"
+		code := DiagnosticCodeInvalidStateZIP
 		message := "expected two-letter state abbreviation followed by ZIP Code"
 		if !hasDigits {
-			code = "missing_state_zip"
+			code = DiagnosticCodeMissingStateZIP
 			message = "state and ZIP Code are required after the city"
 		}
 		diags = append(diags, Diagnostic{
@@ -499,7 +579,7 @@ func normalizeRegion(segment string) (state, zip, zip4 string, diags []Diagnosti
 	if !isValidState(state) {
 		diags = append(diags, Diagnostic{
 			Severity: SeverityError,
-			Code:     "unknown_state",
+			Code:     DiagnosticCodeUnknownState,
 			Message:  fmt.Sprintf("state abbreviation %q is not recognized by USPS", state),
 		})
 	}

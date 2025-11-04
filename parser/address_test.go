@@ -6,7 +6,7 @@ import (
 
 func TestParseAddress_TableDriven(t *testing.T) {
 	type diagExpect struct {
-		Code string
+		Code DiagnosticCode
 	}
 	tests := []struct {
 		name            string
@@ -1614,7 +1614,7 @@ func TestEdgeCasesAndDiagnostics(t *testing.T) {
 	tests := []struct {
 		name            string
 		input           string
-		wantDiagCode    string
+		wantDiagCode    DiagnosticCode
 		wantDiagPresent bool
 	}{
 		{
