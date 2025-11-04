@@ -180,6 +180,7 @@ func preprocessInput(input string) string {
 	return strings.Join(fields, " ")
 }
 
+// splitSegments splits the input string on commas and returns a slice of non-empty, trimmed segments.
 func splitSegments(input string) []string {
 	if input == "" {
 		return nil
