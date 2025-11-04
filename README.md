@@ -279,7 +279,7 @@ func ProcessAddresses(addresses []*models.AddressRequest) {
         }
 
         fmt.Printf("Standardized: %s, %s, %s %s\n",
-            result.Response.Address.Address.StreetAddress,
+            result.Response.Address.StreetAddress,
             result.Response.Address.City,
             result.Response.Address.State,
             result.Response.Address.ZIPCode)
