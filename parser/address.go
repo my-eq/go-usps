@@ -382,30 +382,33 @@ const (
 	secondaryDesignatorFloor     secondaryDesignatorValue = "FL"
 	secondaryDesignatorBuilding  secondaryDesignatorValue = "BLDG"
 	secondaryDesignatorLot       secondaryDesignatorValue = "LOT"
-	secondaryDesignatorPOBox     secondaryDesignatorValue = "PO BOX"
 )
 
+var secondaryDesignatorTokens = []secondaryDesignatorToken{
+	"APT",
+	"APARTMENT",
+	"UNIT",
+	"STE",
+	"SUITE",
+	"ROOM",
+	"RM",
+	"FL",
+	"FLOOR",
+	"BLDG",
+	"BUILDING",
+	"LOT",
+}
+
 var (
-	// secondaryPattern matches secondary address units such as "APT 5B", "SUITE #12", "UNIT 3", etc.
-	//
-	// Regex breakdown:
-	//   (?i)                : Case-insensitive match
-	//   \b                  : Word boundary to ensure unit type is a separate word
-	//   (APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)
-	//                       : Capture group 1 - matches the unit type (e.g., "APT", "SUITE", "#")
-	//   \b[ .\-#]*          : Matches optional whitespace, periods, hyphens, or "#" after the unit type
-	//   (.+)$               : Capture group 2 - matches the unit identifier (e.g., "5B", "12", "3")
-	//
-	// Example matches:
-	//   "APT 5B"         => group 1: "APT", group 2: "5B"
-	//   "SUITE #12"      => group 1: "SUITE", group 2: "12"
-	//   "APT. 5B"        => group 1: "APT", group 2: "5B"
-	//   "UNIT-3"         => group 1: "UNIT", group 2: "3"
-	//   "#7"             => group 1: "#", group 2: "7"
-	secondaryPattern           = regexp.MustCompile(`(?i)\b(?:(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b[ .\-#]*)(.+)$`)
-	secondaryDesignatorPattern = regexp.MustCompile(`(?i)\b(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b`)
-	poBoxPattern               = regexp.MustCompile(`(?i)^P\s*O\s*BOX\s+(\d+[A-Z0-9]*)$`)
-	directionalMap             = map[directionalToken]directionalValue{
+	// secondaryPattern matches secondary address units such as "APT 5B" or "SUITE #12" by
+	// capturing two groups:
+	//   1. The secondary designator token (e.g., "APT", "SUITE", "FL", or the literal "#").
+	//   2. The trailing unit identifier, preserving spaces, hyphens, and other separators.
+	// secondaryDesignatorPattern reuses the same alternation to find designators embedded within
+	// the street segment so inline secondaries can be peeled off safely.
+	secondaryPattern, secondaryDesignatorPattern = buildSecondaryPatterns(secondaryDesignatorTokens)
+	poBoxPattern                                 = regexp.MustCompile(`(?i)^P\s*O\s*BOX\s+(\d+[A-Z0-9]*)$`)
+	directionalMap                               = map[directionalToken]directionalValue{
 		directionalToken("N"):         directionalNorth,
 		directionalToken("NORTH"):     directionalNorth,
 		directionalToken("S"):         directionalSouth,
@@ -453,9 +456,23 @@ var (
 		secondaryDesignatorToken("BLDG"):      secondaryDesignatorBuilding,
 		secondaryDesignatorToken("BUILDING"):  secondaryDesignatorBuilding,
 		secondaryDesignatorToken("LOT"):       secondaryDesignatorLot,
-		secondaryDesignatorToken("PO BOX"):    secondaryDesignatorPOBox,
 	}
 )
+
+func buildSecondaryPatterns(tokens []secondaryDesignatorToken) (*regexp.Regexp, *regexp.Regexp) {
+	parts := make([]string, 0, len(tokens)+1)
+	for _, token := range tokens {
+		parts = append(parts, regexp.QuoteMeta(string(token)))
+	}
+	// Include literal "#" to support formats like "SUITE #12" and "#7" without adding it to the normalization map.
+	parts = append(parts, regexp.QuoteMeta("#"))
+
+	alternation := strings.Join(parts, "|")
+	designatorGroup := fmt.Sprintf("(%s)", alternation)
+	pattern := fmt.Sprintf(`(?i)\b(?:%s\b[ .\-#]*)(.+)$`, designatorGroup)
+	designatorPattern := fmt.Sprintf(`(?i)\b%s\b`, designatorGroup)
+	return regexp.MustCompile(pattern), regexp.MustCompile(designatorPattern)
+}
 
 func normalizeStreet(segment string) (street string, secondary string, diags []Diagnostic) {
 	if segment == "" {
