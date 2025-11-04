@@ -403,6 +403,196 @@ func FormatMailingLabel(address *models.AddressRequest) (string, error) {
 
 ---
 
+## Address Parsing
+
+The `parser` package provides intelligent parsing of free-form address strings into structured
+`AddressRequest` objects. This is essential for handling user input that doesn't follow a strict format.
+
+### Why Use the Parser?
+
+- **Handle free-form input** - Parse addresses from a single text field
+- **Smart tokenization** - Automatically identifies address components
+- **USPS standardization** - Applies official USPS abbreviations and formatting
+- **Validation feedback** - Provides diagnostics for missing or incorrect components
+- **Zero dependencies** - Pure Go implementation using only the standard library
+
+### Quick Example
+
+```go
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/parser"
+)
+
+func main() {
+    // Parse a free-form address string
+    input := "123 North Main Street Apartment 4B, New York, NY 10001-1234"
+    parsed, diagnostics := parser.Parse(input)
+
+    // Check for issues
+    for _, d := range diagnostics {
+        fmt.Printf("%s: %s\n", d.Severity, d.Message)
+    }
+
+    // Convert to AddressRequest
+    req := parsed.ToAddressRequest()
+
+    fmt.Printf("Street: %s\n", req.StreetAddress)     // "123 N MAIN ST"
+    fmt.Printf("Secondary: %s\n", req.SecondaryAddress) // "APT 4B"
+    fmt.Printf("City: %s\n", req.City)                 // "NEW YORK"
+    fmt.Printf("State: %s\n", req.State)               // "NY"
+    fmt.Printf("ZIP: %s\n", req.ZIPCode)               // "10001"
+    fmt.Printf("ZIP+4: %s\n", req.ZIPPlus4)            // "1234"
+}
+```
+
+### Integration with USPS API
+
+Combine parsing with USPS validation for the complete workflow:
+
+```go
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/my-eq/go-usps"
+    "github.com/my-eq/go-usps/parser"
+)
+
+func ValidateFreeFormAddress(userInput string) error {
+    // Step 1: Parse the free-form input
+    parsed, diagnostics := parser.Parse(userInput)
+
+    // Step 2: Check for critical errors
+    for _, d := range diagnostics {
+        if d.Severity == parser.SeverityError {
+            return fmt.Errorf("parse error: %s - %s", d.Message, d.Remediation)
+        }
+    }
+
+    // Step 3: Convert to AddressRequest
+    req := parsed.ToAddressRequest()
+
+    // Step 4: Validate with USPS API
+    client := usps.NewClientWithOAuth("client-id", "client-secret")
+    resp, err := client.GetAddress(context.Background(), req)
+    if err != nil {
+        return fmt.Errorf("validation failed: %v", err)
+    }
+
+    fmt.Printf("Validated address: %s, %s, %s %s\n",
+        resp.Address.StreetAddress,
+        resp.Address.City,
+        resp.Address.State,
+        resp.Address.ZIPCode)
+
+    return nil
+}
+```
+
+### Key Features
+
+**Intelligent Component Recognition:**
+
+```go
+// Handles directionals
+parser.Parse("123 North Main St, New York, NY 10001")
+// → Street: "123 N MAIN ST"
+
+// Handles secondary units
+parser.Parse("456 Oak Ave Apt 4B, Boston, MA 02101")
+// → Street: "456 OAK AVE", Secondary: "APT 4B"
+
+// Handles ZIP+4
+parser.Parse("789 Elm Blvd, Chicago, IL 60601-1234")
+// → ZIP: "60601", ZIP+4: "1234"
+```
+
+**Automatic Standardization:**
+
+The parser applies USPS Publication 28 standards automatically:
+
+| Input           | Standardized |
+|-----------------|--------------|
+| Street          | ST           |
+| Avenue          | AVE          |
+| Boulevard       | BLVD         |
+| North           | N            |
+| Apartment       | APT          |
+| Suite           | STE          |
+
+**Diagnostics and Validation:**
+
+```go
+parsed, diagnostics := parser.Parse("123 Main St, New York")
+
+for _, d := range diagnostics {
+    fmt.Printf("%s: %s\n", d.Severity, d.Message)
+    if d.Remediation != "" {
+        fmt.Printf("  Fix: %s\n", d.Remediation)
+    }
+}
+
+// Output:
+// Error: Missing required state code
+//   Fix: Add a 2-letter state code (e.g., NY, CA, TX)
+// Warning: Missing ZIP code
+//   Fix: Add a 5-digit ZIP code for better address validation
+```
+
+### Common Use Cases
+
+**Single-field address input:**
+
+```go
+// User enters complete address in one field
+userInput := "123 Main St Apt 4, New York, NY 10001"
+parsed, _ := parser.Parse(userInput)
+req := parsed.ToAddressRequest()
+
+// Now ready for USPS validation
+resp, err := client.GetAddress(ctx, req)
+```
+
+**Form auto-fill:**
+
+```go
+// Parse as user types, fill individual fields
+parsed, _ := parser.Parse(userInput)
+
+streetField.SetText(parsed.HouseNumber + " " + parsed.StreetName)
+cityField.SetText(parsed.City)
+stateField.SetText(parsed.State)
+zipField.SetText(parsed.ZIPCode)
+```
+
+**Import from CSV or external data:**
+
+```go
+// Parse addresses from external sources
+for _, row := range csvData {
+    parsed, diagnostics := parser.Parse(row.AddressColumn)
+    
+    if hasErrors(diagnostics) {
+        log.Printf("Skipping invalid address: %s", row.AddressColumn)
+        continue
+    }
+    
+    req := parsed.ToAddressRequest()
+    // Validate with USPS...
+}
+```
+
+For complete parser documentation, see the
+[parser package README](https://github.com/my-eq/go-usps/blob/main/parser/README.md).
+
+---
+
 ## Advanced Usage
 
 ### Custom Token Provider

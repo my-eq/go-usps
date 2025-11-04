@@ -102,6 +102,9 @@ type ParsedAddress struct {
 }
 
 // ToAddressRequest converts a ParsedAddress to a models.AddressRequest.
+// The method combines parsed components into the format required by the USPS API,
+// including building the street address from house number, directionals, street name,
+// and suffix, and the secondary address from unit designator and number.
 func (p *ParsedAddress) ToAddressRequest() *models.AddressRequest {
 	req := &models.AddressRequest{
 		State: p.State,

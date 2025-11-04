@@ -17,7 +17,9 @@ func New() *Parser {
 }
 
 // Parse parses a free-form address string into a structured ParsedAddress.
-// Returns the parsed address and any diagnostics (warnings or errors).
+// It tokenizes the input, applies USPS standardization rules, and validates
+// the address components. Returns the parsed address and any diagnostics
+// (warnings or errors) encountered during parsing.
 func Parse(input string) (*ParsedAddress, []Diagnostic) {
 	p := New()
 	return p.Parse(input)
