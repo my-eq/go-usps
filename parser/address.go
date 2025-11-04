@@ -621,6 +621,9 @@ var (
 	stateZipPattern = regexp.MustCompile(`(?i)^([A-Z]{2})\s+(\d{5})(?:[\-\s]*(\d{4}))?$`)
 )
 
+// normalizeRegion extracts and validates the state abbreviation and ZIP code from the given segment,
+// following USPS Publication 28 standards. It returns the state, ZIP, optional ZIP+4, and any diagnostics
+// indicating parsing or validation issues.
 func normalizeRegion(segment string) (state, zip, zip4 string, diags []Diagnostic) {
 	if segment == "" {
 		diags = append(diags, Diagnostic{
