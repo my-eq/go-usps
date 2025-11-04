@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -46,8 +47,20 @@ func TestNewBulkProcessor(t *testing.T) {
 		if processor.client != client {
 			t.Error("Expected client to be set")
 		}
-		if processor.config != config {
-			t.Error("Expected config to be set")
+		if processor.config == nil {
+			t.Fatal("Expected config to be initialized")
+		}
+		if processor.config.MaxConcurrency != config.MaxConcurrency {
+			t.Errorf("Expected MaxConcurrency=%d, got %d", config.MaxConcurrency, processor.config.MaxConcurrency)
+		}
+		if processor.config.RequestsPerSecond != config.RequestsPerSecond {
+			t.Errorf("Expected RequestsPerSecond=%d, got %d", config.RequestsPerSecond, processor.config.RequestsPerSecond)
+		}
+		if processor.config.MaxRetries != config.MaxRetries {
+			t.Errorf("Expected MaxRetries=%d, got %d", config.MaxRetries, processor.config.MaxRetries)
+		}
+		if processor.config.RetryBackoff != config.RetryBackoff {
+			t.Errorf("Expected RetryBackoff=%v, got %v", config.RetryBackoff, processor.config.RetryBackoff)
 		}
 	})
 
@@ -59,6 +72,30 @@ func TestNewBulkProcessor(t *testing.T) {
 		}
 		if processor.config.MaxConcurrency != 10 {
 			t.Errorf("Expected default MaxConcurrency=10, got %d", processor.config.MaxConcurrency)
+		}
+	})
+
+	t.Run("invalid config values fall back to defaults", func(t *testing.T) {
+		config := &BulkConfig{
+			MaxConcurrency:    0,
+			RequestsPerSecond: 0,
+			MaxRetries:        -1,
+			RetryBackoff:      0,
+		}
+		processor := NewBulkProcessor(client, config)
+		defaults := DefaultBulkConfig()
+
+		if processor.config.MaxConcurrency != defaults.MaxConcurrency {
+			t.Errorf("Expected MaxConcurrency default, got %d", processor.config.MaxConcurrency)
+		}
+		if processor.config.RequestsPerSecond != defaults.RequestsPerSecond {
+			t.Errorf("Expected RequestsPerSecond default, got %d", processor.config.RequestsPerSecond)
+		}
+		if processor.config.MaxRetries != defaults.MaxRetries {
+			t.Errorf("Expected MaxRetries default, got %d", processor.config.MaxRetries)
+		}
+		if processor.config.RetryBackoff != defaults.RetryBackoff {
+			t.Errorf("Expected RetryBackoff default, got %v", processor.config.RetryBackoff)
 		}
 	})
 }
@@ -646,5 +683,90 @@ func TestBulkProcessor_RateLimiting(t *testing.T) {
 
 	if atomic.LoadInt32(&requestCount) != 10 {
 		t.Errorf("Expected 10 requests, got %d", requestCount)
+	}
+}
+
+func TestBulkProcessor_SharesRateLimiterAcrossMethods(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/address":
+			resp := models.AddressResponse{
+				Address: &models.DomesticAddress{
+					Address: models.Address{StreetAddress: "123 MAIN ST"},
+					City:    "NEW YORK",
+					State:   "NY",
+					ZIPCode: "10001",
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		case "/zipcode":
+			resp := models.ZIPCodeResponse{
+				Address: &models.DomesticAddress{
+					Address: models.Address{StreetAddress: "123 MAIN ST"},
+					City:    "NEW YORK",
+					State:   "NY",
+					ZIPCode: "10001",
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	tokenProvider := NewStaticTokenProvider("test-token")
+	client := NewClient(tokenProvider, WithBaseURL(server.URL))
+
+	config := &BulkConfig{
+		MaxConcurrency:    10,
+		RequestsPerSecond: 5,
+		MaxRetries:        0,
+		RetryBackoff:      10 * time.Millisecond,
+	}
+	processor := NewBulkProcessor(client, config)
+
+	addressRequests := make([]*models.AddressRequest, 5)
+	for i := range addressRequests {
+		addressRequests[i] = &models.AddressRequest{
+			StreetAddress: "123 Main St",
+			City:          "New York",
+			State:         "NY",
+		}
+	}
+
+	zipRequests := make([]*models.ZIPCodeRequest, 5)
+	for i := range zipRequests {
+		zipRequests[i] = &models.ZIPCodeRequest{
+			StreetAddress: "123 Main St",
+			City:          "New York",
+			State:         "NY",
+		}
+	}
+
+	ctx := context.Background()
+	start := time.Now()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		processor.ProcessAddresses(ctx, addressRequests)
+	}()
+	go func() {
+		defer wg.Done()
+		processor.ProcessZIPCodes(ctx, zipRequests)
+	}()
+	wg.Wait()
+
+	duration := time.Since(start)
+	totalRequests := len(addressRequests) + len(zipRequests)
+	expectedMin := time.Duration(float64(totalRequests-config.RequestsPerSecond) / float64(config.RequestsPerSecond) * float64(time.Second))
+	tolerance := 100 * time.Millisecond
+	if expectedMin > tolerance {
+		expectedMin -= tolerance
+	}
+	if duration < expectedMin {
+		t.Errorf("Shared rate limiter not enforced: concurrent batches completed in %v (expected at least %v)", duration, expectedMin)
 	}
 }
