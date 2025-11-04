@@ -34,6 +34,10 @@ func (n *Normalizer) normalize(tokens []Token) ([]Token, []Diagnostic) {
 					// Might be post-directional
 					token.Type = TokenPostDirectional
 				}
+			} else {
+				// No following token means this directional trails the street segment
+				// and should be treated as a post-directional.
+				token.Type = TokenPostDirectional
 			}
 		}
 
