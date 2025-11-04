@@ -693,6 +693,8 @@ func isValidState(state string) bool {
 	return ok
 }
 
+// sortDiagnostics sorts diagnostics by severity (errors before warnings),
+// then by code, then by span position (start, then end).
 func sortDiagnostics(diags []Diagnostic) {
 	sort.SliceStable(diags, func(i, j int) bool {
 		if diags[i].Severity != diags[j].Severity {
