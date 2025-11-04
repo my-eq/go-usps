@@ -1523,3 +1523,46 @@ func TestSplitSegments(t *testing.T) {
 		t.Errorf("city: want %q, got %q", "SPRINGFIELD", parsed.City)
 	}
 }
+
+func TestPreprocessInput(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			name: "Empty string",
+			in:   "",
+			out:  "",
+		},
+		{
+			name: "Collapse multiple spaces",
+			in:   "123   Main   St",
+			out:  "123 Main St",
+		},
+		{
+			name: "Trim leading and trailing",
+			in:   "   456 Oak Ave   ",
+			out:  "456 Oak Ave",
+		},
+		{
+			name: "Normalize mixed whitespace",
+			in:   "789\tPine\nRd",
+			out:  "789 Pine Rd",
+		},
+		{
+			name: "Preserve punctuation spacing",
+			in:   "101 Maple St , Springfield",
+			out:  "101 Maple St , Springfield",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := preprocessInput(tc.in)
+			if got != tc.out {
+				t.Errorf("preprocessInput(%q) = %q, want %q", tc.in, got, tc.out)
+			}
+		})
+	}
+}
