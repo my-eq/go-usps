@@ -64,10 +64,10 @@ func normalizeInput(input string) string {
 	return s
 }
 
-// splitAddressParts splits the address into logical parts.
-// Handles common patterns like "123 Main St, New York, NY 10001"
+// splitAddressParts splits the address into logical parts using pipe delimiters.
+// Note: The input has already been normalized by normalizeInput which converts commas to spaces.
 func splitAddressParts(input string) []string {
-	// Replace common delimiters with a special marker
+	// Replace pipe delimiters with a special marker for splitting
 	s := input
 	s = strings.ReplaceAll(s, ",", " | ")
 
@@ -103,37 +103,35 @@ func (t *Tokenizer) tokenizePart(part string, basePosition int) []Token {
 			End:      position + len(word),
 		}
 
-		// Classification logic - check ZIP codes first before generic numeric
-		if isZIPCode(word) {
-			if isZIPPlus4(word) {
-				// Split ZIP+4
-				parts := strings.Split(word, "-")
-				if len(parts) == 2 {
-					// Add ZIP code token
-					zipToken := Token{
-						Type:     TokenZIPCode,
-						Value:    parts[0],
-						Original: parts[0],
-						Start:    position,
-						End:      position + len(parts[0]),
-					}
-					tokens = append(tokens, zipToken)
-
-					// Add ZIP+4 token
-					zip4Token := Token{
-						Type:     TokenZIPPlus4,
-						Value:    parts[1],
-						Original: parts[1],
-						Start:    position + len(parts[0]) + 1,
-						End:      position + len(word),
-					}
-					tokens = append(tokens, zip4Token)
-					position += len(word) + 1
-					continue
+		// Classification logic - check ZIP+4 first, then generic ZIP code, then numeric
+		if isZIPPlus4(word) {
+			// Split ZIP+4
+			parts := strings.Split(word, "-")
+			if len(parts) == 2 {
+				// Add ZIP code token
+				zipToken := Token{
+					Type:     TokenZIPCode,
+					Value:    parts[0],
+					Original: parts[0],
+					Start:    position,
+					End:      position + len(parts[0]),
 				}
-			} else {
-				token.Type = TokenZIPCode
+				tokens = append(tokens, zipToken)
+
+				// Add ZIP+4 token
+				zip4Token := Token{
+					Type:     TokenZIPPlus4,
+					Value:    parts[1],
+					Original: parts[1],
+					Start:    position + len(parts[0]) + 1,
+					End:      position + len(word),
+				}
+				tokens = append(tokens, zip4Token)
+				position += len(word) + 1
+				continue
 			}
+		} else if isZIPCode(word) {
+			token.Type = TokenZIPCode
 		} else if isNumeric(word) {
 			// Check if previous token was a secondary designator
 			if len(tokens) > 0 && tokens[len(tokens)-1].Type == TokenSecondaryDesignator {

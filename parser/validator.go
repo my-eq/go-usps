@@ -22,7 +22,7 @@ func (v *Validator) validate(parsed *ParsedAddress) []Diagnostic {
 		})
 	}
 
-	if parsed.HouseNumber == "" && parsed.StreetName == "" {
+	if parsed.HouseNumber == "" || parsed.StreetName == "" {
 		diagnostics = append(diagnostics, Diagnostic{
 			Severity:    SeverityError,
 			Message:     "Missing street address",
