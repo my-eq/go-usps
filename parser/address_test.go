@@ -7,23 +7,33 @@ import (
 // assertParsed is a helper to reduce repetitive field comparison noise in focused tests.
 // It fails fast with clear labels for any mismatched component.
 func assertParsed(t *testing.T, p ParsedAddress, street, secondary, city, state, zip, zip4 string) {
+	var failed bool
 	if p.StreetAddress != street {
-		t.Fatalf("street: want %q, got %q", street, p.StreetAddress)
+		t.Errorf("street: want %q, got %q", street, p.StreetAddress)
+		failed = true
 	}
 	if p.SecondaryAddress != secondary {
-		t.Fatalf("secondary: want %q, got %q", secondary, p.SecondaryAddress)
+		t.Errorf("secondary: want %q, got %q", secondary, p.SecondaryAddress)
+		failed = true
 	}
 	if p.City != city {
-		t.Fatalf("city: want %q, got %q", city, p.City)
+		t.Errorf("city: want %q, got %q", city, p.City)
+		failed = true
 	}
 	if p.State != state {
-		t.Fatalf("state: want %q, got %q", state, p.State)
+		t.Errorf("state: want %q, got %q", state, p.State)
+		failed = true
 	}
 	if p.ZIPCode != zip {
-		t.Fatalf("ZIP: want %q, got %q", zip, p.ZIPCode)
+		t.Errorf("ZIP: want %q, got %q", zip, p.ZIPCode)
+		failed = true
 	}
 	if p.ZIPPlus4 != zip4 {
-		t.Fatalf("ZIP+4: want %q, got %q", zip4, p.ZIPPlus4)
+		t.Errorf("ZIP+4: want %q, got %q", zip4, p.ZIPPlus4)
+		failed = true
+	}
+	if failed {
+		t.FailNow()
 	}
 }
 
