@@ -49,29 +49,36 @@ func normalizeInputWithMapping(input string) (string, []int) {
 	positionMap := make([]int, 0, len(input))
 	
 	s := input
-	origPos := 0
+	lastWasSpace := true // Start as true to handle leading spaces
 	
 	// Convert to uppercase and build position map
 	for i, r := range s {
 		upper := unicode.ToUpper(r)
 		
-		// Skip punctuation that should be removed
+		// Treat punctuation as word separators (convert to space)
 		if r == '.' || r == ',' || r == ';' {
+			// Add a space if we haven't just added one
+			if !lastWasSpace && result.Len() > 0 {
+				result.WriteRune(' ')
+				positionMap = append(positionMap, i)
+				lastWasSpace = true
+			}
 			continue
 		}
 		
-		// Map whitespace to single space
+		// Handle whitespace
 		if unicode.IsSpace(r) {
 			// Only add space if the last char wasn't a space
-			if result.Len() == 0 || result.String()[result.Len()-1] != ' ' {
+			if !lastWasSpace && result.Len() > 0 {
 				result.WriteRune(' ')
 				positionMap = append(positionMap, i)
+				lastWasSpace = true
 			}
 		} else {
 			result.WriteRune(upper)
 			positionMap = append(positionMap, i)
+			lastWasSpace = false
 		}
-		origPos = i
 	}
 	
 	// Trim trailing spaces
