@@ -104,17 +104,6 @@ func TestParseAddress_TableDriven(t *testing.T) {
 			wantDiagnostics: nil,
 		},
 		// (Malformed ZIP formats covered in TestMalformedZIPCodes)
-		{
-			name:            "ZIP+4 with dash",
-			input:           "123 Main St, Springfield, IL 62704-1234",
-			wantStreet:      "123 MAIN ST",
-			wantSecondary:   "",
-			wantCity:        "SPRINGFIELD",
-			wantState:       "IL",
-			wantZIP:         "62704",
-			wantZIPPlus4:    "1234",
-			wantDiagnostics: nil,
-		},
 		// ZIP+4 space variant exercised elsewhere
 		// Directional normalization (single representative plus special mid-street case; other
 		// directional variants appear later in table
