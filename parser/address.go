@@ -686,6 +686,8 @@ var usStateAbbreviations = map[string]struct{}{
 	"AA": {}, "AE": {}, "AP": {},
 }
 
+// isValidState checks if the provided state abbreviation is valid according to USPS standards.
+// It recognizes US states, territories, and military state codes as defined by USPS.
 func isValidState(state string) bool {
 	_, ok := usStateAbbreviations[state]
 	return ok
