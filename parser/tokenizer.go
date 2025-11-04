@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"regexp"
 	"strings"
 	"unicode"
 )
@@ -20,8 +19,8 @@ func newTokenizer() *Tokenizer {
 
 // tokenize splits the input into tokens and classifies them.
 func (t *Tokenizer) tokenize(input string) []Token {
-	// Normalize input
-	normalized := normalizeInput(input)
+	// Normalize input while tracking original positions
+	normalized, positionMap := normalizeInputWithMapping(input)
 
 	// Split on common delimiters
 	parts := splitAddressParts(normalized)
@@ -35,7 +34,7 @@ func (t *Tokenizer) tokenize(input string) []Token {
 		}
 
 		// Tokenize each part
-		partTokens := t.tokenizePart(part, position)
+		partTokens := t.tokenizePart(part, position, positionMap)
 		tokens = append(tokens, partTokens...)
 		position += len(part) + 1 // +1 for delimiter
 	}
@@ -43,25 +42,60 @@ func (t *Tokenizer) tokenize(input string) []Token {
 	return tokens
 }
 
+// normalizeInputWithMapping cleans and normalizes the input string while maintaining
+// a mapping from normalized positions back to original positions.
+func normalizeInputWithMapping(input string) (string, []int) {
+	var result strings.Builder
+	positionMap := make([]int, 0, len(input))
+	
+	s := input
+	origPos := 0
+	
+	// Convert to uppercase and build position map
+	for i, r := range s {
+		upper := unicode.ToUpper(r)
+		
+		// Skip punctuation that should be removed
+		if r == '.' || r == ',' || r == ';' {
+			continue
+		}
+		
+		// Map whitespace to single space
+		if unicode.IsSpace(r) {
+			// Only add space if the last char wasn't a space
+			if result.Len() == 0 || result.String()[result.Len()-1] != ' ' {
+				result.WriteRune(' ')
+				positionMap = append(positionMap, i)
+			}
+		} else {
+			result.WriteRune(upper)
+			positionMap = append(positionMap, i)
+		}
+		origPos = i
+	}
+	
+	// Trim trailing spaces
+	normalized := strings.TrimSpace(result.String())
+	
+	// Adjust position map for trimming
+	if len(normalized) < result.Len() {
+		positionMap = positionMap[:len(normalized)]
+	}
+	
+	// Handle leading trim
+	trimStart := len(result.String()) - len(strings.TrimLeft(result.String(), " "))
+	if trimStart > 0 && trimStart < len(positionMap) {
+		positionMap = positionMap[trimStart:]
+	}
+	
+	return normalized, positionMap
+}
+
 // normalizeInput cleans and normalizes the input string.
+// This is kept for backward compatibility but should use normalizeInputWithMapping.
 func normalizeInput(input string) string {
-	// Convert to uppercase for consistent matching
-	s := strings.ToUpper(input)
-
-	// Normalize whitespace
-	s = strings.TrimSpace(s)
-	s = regexp.MustCompile(`\s+`).ReplaceAllString(s, " ")
-
-	// Remove excess punctuation but preserve necessary ones
-	s = strings.ReplaceAll(s, ".", "")
-	s = strings.ReplaceAll(s, ",", " ")
-	s = strings.ReplaceAll(s, ";", " ")
-
-	// Normalize whitespace again after punctuation removal
-	s = regexp.MustCompile(`\s+`).ReplaceAllString(s, " ")
-	s = strings.TrimSpace(s)
-
-	return s
+	normalized, _ := normalizeInputWithMapping(input)
+	return normalized
 }
 
 // splitAddressParts splits the address into logical parts using pipe delimiters.
@@ -86,7 +120,7 @@ func splitAddressParts(input string) []string {
 }
 
 // tokenizePart tokenizes a single part of the address.
-func (t *Tokenizer) tokenizePart(part string, basePosition int) []Token {
+func (t *Tokenizer) tokenizePart(part string, basePosition int, positionMap []int) []Token {
 	words := strings.Fields(part)
 	var tokens []Token
 	position := basePosition
@@ -94,13 +128,31 @@ func (t *Tokenizer) tokenizePart(part string, basePosition int) []Token {
 	for i := 0; i < len(words); i++ {
 		word := words[i]
 		original := word
+		
+		// Calculate original positions using the position map
+		var startPos, endPos int
+		if position < len(positionMap) {
+			startPos = positionMap[position]
+			endIdx := position + len(word) - 1
+			if endIdx < len(positionMap) {
+				endPos = positionMap[endIdx] + 1 // +1 to make it exclusive
+			} else if len(positionMap) > 0 {
+				endPos = positionMap[len(positionMap)-1] + 1
+			} else {
+				endPos = startPos + len(word)
+			}
+		} else {
+			// Fallback if position map is incomplete
+			startPos = position
+			endPos = position + len(word)
+		}
 
 		// Try to classify the token
 		token := Token{
 			Value:    word,
 			Original: original,
-			Start:    position,
-			End:      position + len(word),
+			Start:    startPos,
+			End:      endPos,
 		}
 
 		// Classification logic - check ZIP+4 first, then generic ZIP code, then numeric
@@ -108,23 +160,49 @@ func (t *Tokenizer) tokenizePart(part string, basePosition int) []Token {
 			// Split ZIP+4
 			parts := strings.Split(word, "-")
 			if len(parts) == 2 {
+				// Calculate positions for ZIP code part
+				zipStartPos := startPos
+				zipLen := len(parts[0])
+				var zipEndPos int
+				if position+zipLen-1 < len(positionMap) {
+					zipEndPos = positionMap[position+zipLen-1] + 1
+				} else {
+					zipEndPos = zipStartPos + zipLen
+				}
+				
 				// Add ZIP code token
 				zipToken := Token{
 					Type:     TokenZIPCode,
 					Value:    parts[0],
 					Original: parts[0],
-					Start:    position,
-					End:      position + len(parts[0]),
+					Start:    zipStartPos,
+					End:      zipEndPos,
 				}
 				tokens = append(tokens, zipToken)
 
+				// Calculate positions for ZIP+4 part (after hyphen)
+				zip4Start := position + zipLen + 1 // +1 for hyphen
+				var zip4StartPos, zip4EndPos int
+				if zip4Start < len(positionMap) {
+					zip4StartPos = positionMap[zip4Start]
+					zip4EndIdx := zip4Start + len(parts[1]) - 1
+					if zip4EndIdx < len(positionMap) {
+						zip4EndPos = positionMap[zip4EndIdx] + 1
+					} else {
+						zip4EndPos = zip4StartPos + len(parts[1])
+					}
+				} else {
+					zip4StartPos = zipEndPos + 1
+					zip4EndPos = zip4StartPos + len(parts[1])
+				}
+				
 				// Add ZIP+4 token
 				zip4Token := Token{
 					Type:     TokenZIPPlus4,
 					Value:    parts[1],
 					Original: parts[1],
-					Start:    position + len(parts[0]) + 1,
-					End:      position + len(word),
+					Start:    zip4StartPos,
+					End:      zip4EndPos,
 				}
 				tokens = append(tokens, zip4Token)
 				position += len(word) + 1
