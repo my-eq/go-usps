@@ -569,6 +569,9 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 	return street, secondary, diags
 }
 
+// normalizeSecondaryDesignator converts secondary address designators (e.g., "Apartment", "Suite")
+// to their standard USPS abbreviations. If the designator is recognized, it returns the USPS
+// abbreviation; otherwise, it returns the original input.
 func normalizeSecondaryDesignator(designator string) (string, bool) {
 	designator = strings.ToUpper(strings.TrimSpace(designator))
 	if designator == "#" {
