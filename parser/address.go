@@ -96,10 +96,13 @@ func Parse(input string) ParsedAddress {
 		// Check middle segments for secondary address indicators
 		for _, seg := range middleSegments {
 			if isSecondarySegment(seg) {
-				secondarySegments = append(secondarySegments, seg)
-			} else {
-				citySegments = append(citySegments, seg)
+				normalized := normalizeSecondarySegment(seg)
+				if normalized != "" {
+					secondarySegments = append(secondarySegments, normalized)
+				}
+				continue
 			}
+			citySegments = append(citySegments, seg)
 		}
 	}
 
@@ -107,12 +110,13 @@ func Parse(input string) ParsedAddress {
 	address.StreetAddress = street
 
 	// If secondary was found in street segment, use it; otherwise check secondary segments
+	allSecondary := make([]string, 0, len(secondarySegments)+1)
 	if secondary != "" {
-		address.SecondaryAddress = secondary
-	} else if len(secondarySegments) > 0 {
-		// Process secondary segments to extract and normalize
-		combinedSecondary := strings.Join(secondarySegments, " ")
-		address.SecondaryAddress = normalizeSecondarySegment(combinedSecondary)
+		allSecondary = append(allSecondary, secondary)
+	}
+	allSecondary = append(allSecondary, secondarySegments...)
+	if len(allSecondary) > 0 {
+		address.SecondaryAddress = strings.Join(allSecondary, " ")
 	}
 
 	address.Diagnostics = append(address.Diagnostics, streetDiags...)
@@ -165,10 +169,10 @@ func splitSegments(input string) []string {
 	return segments
 }
 
+// extractSecondary returns a normalized secondary string if the segment contains one; otherwise empty string.
 // isSecondarySegment checks if a segment contains secondary address indicators
 func isSecondarySegment(segment string) bool {
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
-	// Remove periods for matching so variants like "APT." normalize to "APT"
 	segmentClean := strings.ReplaceAll(segmentUpper, ".", "")
 
 	// Special handling for hash sign - it can be followed directly by a number
@@ -176,7 +180,6 @@ func isSecondarySegment(segment string) bool {
 		return true
 	}
 
-	// Check if the segment starts with or contains common secondary designators
 	secondaryPrefixes := []string{
 		"APT", "APARTMENT",
 		"UNIT", "SUITE", "STE",
@@ -187,7 +190,6 @@ func isSecondarySegment(segment string) bool {
 	}
 
 	for _, prefix := range secondaryPrefixes {
-		// Check if segment starts with the prefix (possibly followed by space, dash, or number)
 		if strings.HasPrefix(segmentClean, prefix+" ") ||
 			strings.HasPrefix(segmentClean, prefix+"-") ||
 			strings.HasPrefix(segmentClean, prefix+"#") ||
@@ -236,6 +238,82 @@ func normalizeSecondarySegment(segment string) string {
 	return segmentUpper
 }
 
+// splitInlineSecondary returns the portion before the secondary designator, the designator itself,
+// and the remainder representing the secondary value. It searches from right to left to prefer the
+// last designator occurrence so that street names containing designator words are preserved.
+func splitInlineSecondary(segmentUpper string) (primary string, designator string, remainder string, ok bool) {
+	matches := secondaryDesignatorPattern.FindAllStringSubmatchIndex(segmentUpper, -1)
+	if len(matches) == 0 {
+		return segmentUpper, "", "", false
+	}
+
+	for i := len(matches) - 1; i >= 0; i-- {
+		match := matches[i]
+		fullStart, fullEnd := match[0], match[1]
+		designatorStart, designatorEnd := match[2], match[3]
+
+		remainderRaw := strings.TrimLeft(segmentUpper[fullEnd:], " .-#")
+		remainderRaw = strings.TrimSpace(remainderRaw)
+		if remainderRaw == "" {
+			continue
+		}
+		if !looksLikeSecondaryValue(remainderRaw) {
+			continue
+		}
+
+		primaryPart := strings.TrimSpace(segmentUpper[:fullStart])
+		designatorPart := segmentUpper[designatorStart:designatorEnd]
+		return primaryPart, designatorPart, remainderRaw, true
+	}
+
+	return segmentUpper, "", "", false
+}
+
+func looksLikeSecondaryValue(value string) bool {
+	if value == "" {
+		return false
+	}
+
+	hasDigit := false
+	for _, r := range value {
+		if unicode.IsDigit(r) {
+			hasDigit = true
+			break
+		}
+	}
+	if hasDigit {
+		return true
+	}
+
+	tokens := strings.Fields(value)
+	if len(tokens) == 0 {
+		return false
+	}
+
+	if len(tokens) == 1 {
+		token := tokens[0]
+		if len(token) <= 3 {
+			return true
+		}
+		allowed := map[string]struct{}{
+			"PH":        {},
+			"PENTHOUSE": {},
+			"REAR":      {},
+			"FRONT":     {},
+			"UPPER":     {},
+			"LOWER":     {},
+			"BSMT":      {},
+			"BASEMENT":  {},
+			"LOBBY":     {},
+		}
+		if _, ok := allowed[token]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
 var (
 	// secondaryPattern matches secondary address units such as "APT 5B", "SUITE #12", "UNIT 3", etc.
 	//
@@ -253,9 +331,10 @@ var (
 	//   "APT. 5B"        => group 1: "APT", group 2: "5B"
 	//   "UNIT-3"         => group 1: "UNIT", group 2: "3"
 	//   "#7"             => group 1: "#", group 2: "7"
-	secondaryPattern = regexp.MustCompile(`(?i)\b(?:(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b[ .\-#]*)(.+)$`)
-	poBoxPattern     = regexp.MustCompile(`(?i)^P\s*O\s*BOX\s+(\d+[A-Z0-9]*)$`)
-	directionalMap   = map[string]string{
+	secondaryPattern           = regexp.MustCompile(`(?i)\b(?:(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b[ .\-#]*)(.+)$`)
+	secondaryDesignatorPattern = regexp.MustCompile(`(?i)\b(APT|APARTMENT|UNIT|STE|SUITE|RM|ROOM|FL|FLOOR|BLDG|BUILDING|LOT|#)\b`)
+	poBoxPattern               = regexp.MustCompile(`(?i)^P\s*O\s*BOX\s+(\d+[A-Z0-9]*)$`)
+	directionalMap             = map[string]string{
 		"N": "N", "NORTH": "N",
 		"S": "S", "SOUTH": "S",
 		"E": "E", "EAST": "E",
@@ -314,16 +393,25 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 		return fmt.Sprintf("PO BOX %s", matches[1]), "", nil
 	}
 
-	secondary = ""
-	if matches := secondaryPattern.FindStringSubmatch(segmentUpper); len(matches) == 3 {
-		rawDesignator := strings.TrimSpace(matches[1])
-		remainder := strings.TrimSpace(matches[2])
-		normalizedDesignator := normalizeSecondaryDesignator(rawDesignator)
-		secondary = strings.TrimSpace(normalizedDesignator + " " + remainder)
-		if matchIdxs := secondaryPattern.FindStringSubmatchIndex(segmentUpper); len(matchIdxs) >= 2 {
-			segmentUpper = strings.TrimSpace(segmentUpper[:matchIdxs[0]])
+	secondaryParts := make([]string, 0, 1)
+	for {
+		primary, designator, remainder, ok := splitInlineSecondary(segmentUpper)
+		if !ok {
+			break
+		}
+		normalizedDesignator := normalizeSecondaryDesignator(designator)
+		part := strings.TrimSpace(normalizedDesignator + " " + remainder)
+		if part == "" {
+			break
+		}
+		secondaryParts = append([]string{part}, secondaryParts...)
+		segmentUpper = primary
+		if segmentUpper == "" {
+			break
 		}
 	}
+	secondary = strings.Join(secondaryParts, " ")
+	segmentUpper = strings.TrimSpace(segmentUpper)
 
 	parts := strings.Fields(segmentUpper)
 	normalizedParts := make([]string, 0, len(parts))
