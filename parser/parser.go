@@ -81,8 +81,12 @@ func (p *Parser) buildParsedAddress(tokens []Token, originalInput string) *Parse
 				addr.HouseNumber = token.Value
 			}
 		case TokenPreDirectional:
-			if addr.PreDirectional == "" && !seenStreetSuffix {
+			// If we haven't seen the street suffix yet, this is a pre-directional
+			if !seenStreetSuffix && addr.PreDirectional == "" {
 				addr.PreDirectional = token.Value
+			} else if seenStreetSuffix && addr.PostDirectional == "" {
+				// After street suffix, directionals become post-directionals
+				addr.PostDirectional = token.Value
 			}
 		case TokenStreetName:
 			// If we have a state and this token is right before it, it's city
