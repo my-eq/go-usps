@@ -16,15 +16,25 @@ func newNormalizer() *Normalizer {
 func (n *Normalizer) normalize(tokens []Token) ([]Token, []Diagnostic) {
 	var normalized []Token
 	var diagnostics []Diagnostic
+	seenStreetSuffix := false
 
 	for i := 0; i < len(tokens); i++ {
 		token := tokens[i]
 
+		if token.Type == TokenStreetSuffix {
+			seenStreetSuffix = true
+		}
+
 		// Disambiguate directionals (pre vs post)
 		if token.Type == TokenPreDirectional {
-			// If followed by street suffix or another directional, it's a pre-directional
-			// Otherwise, might be part of street name or post-directional
-			if i+1 < len(tokens) {
+			switch {
+			case seenStreetSuffix:
+				// Once we've seen the street suffix, any additional directionals
+				// belong to the post-directional position.
+				token.Type = TokenPostDirectional
+			case i+1 < len(tokens):
+				// If followed by street suffix or another directional, it's a pre-directional
+				// Otherwise, might be part of street name or post-directional
 				next := tokens[i+1]
 				if next.Type == TokenStreetSuffix || next.Type == TokenPreDirectional {
 					// It's a pre-directional, keep as is
@@ -34,7 +44,7 @@ func (n *Normalizer) normalize(tokens []Token) ([]Token, []Diagnostic) {
 					// Might be post-directional
 					token.Type = TokenPostDirectional
 				}
-			} else {
+			default:
 				// No following token means this directional trails the street segment
 				// and should be treated as a post-directional.
 				token.Type = TokenPostDirectional
