@@ -71,18 +71,38 @@ type ZIPCodeResult struct {
 
 // BulkProcessor handles bulk operations with rate limiting and retries
 type BulkProcessor struct {
-	client *Client
-	config *BulkConfig
+	client  *Client
+	config  *BulkConfig
+	limiter *rateLimiter
 }
 
 // NewBulkProcessor creates a new BulkProcessor with the given client and config
 func NewBulkProcessor(client *Client, config *BulkConfig) *BulkProcessor {
+	defaults := DefaultBulkConfig()
 	if config == nil {
-		config = DefaultBulkConfig()
+		config = defaults
+	} else {
+		cfgCopy := *config
+		config = &cfgCopy
+
+		if config.MaxConcurrency <= 0 {
+			config.MaxConcurrency = defaults.MaxConcurrency
+		}
+		if config.RequestsPerSecond <= 0 {
+			config.RequestsPerSecond = defaults.RequestsPerSecond
+		}
+		if config.MaxRetries < 0 {
+			config.MaxRetries = defaults.MaxRetries
+		}
+		if config.RetryBackoff <= 0 {
+			config.RetryBackoff = defaults.RetryBackoff
+		}
 	}
+
 	return &BulkProcessor{
-		client: client,
-		config: config,
+		client:  client,
+		config:  config,
+		limiter: newRateLimiter(config.RequestsPerSecond),
 	}
 }
 
@@ -97,6 +117,9 @@ type rateLimiter struct {
 
 // newRateLimiter creates a new rate limiter
 func newRateLimiter(requestsPerSecond int) *rateLimiter {
+	if requestsPerSecond <= 0 {
+		requestsPerSecond = DefaultBulkConfig().RequestsPerSecond
+	}
 	return &rateLimiter{
 		tokens:     requestsPerSecond,
 		maxTokens:  requestsPerSecond,
@@ -146,7 +169,7 @@ func (rl *rateLimiter) wait(ctx context.Context) error {
 
 		// Sleep briefly before retrying (half the refill rate to poll efficiently
 		// without busy-waiting, ensuring we check for new tokens roughly twice
-		// per token availability period)
+		// per token availability period))
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -244,7 +267,11 @@ func (bp *BulkProcessor) processBulk(
 	processFunc func(idx int, limiter *rateLimiter) error,
 	progressFunc func(idx int, err error),
 ) {
-	limiter := newRateLimiter(bp.config.RequestsPerSecond)
+	limiter := bp.limiter
+	if limiter == nil {
+		limiter = newRateLimiter(bp.config.RequestsPerSecond)
+		bp.limiter = limiter
+	}
 	sem := make(chan struct{}, bp.config.MaxConcurrency)
 	var wg sync.WaitGroup
 
