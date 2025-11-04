@@ -318,6 +318,9 @@ func splitInlineSecondary(segmentUpper string) (primary string, designator strin
 	return segmentUpper, "", "", false
 }
 
+// looksLikeSecondaryValue determines whether a string appears to be a valid secondary address value.
+// It returns true if the value contains any digits, is a short token (length <= 3), or matches
+// recognized secondary address keywords such as "PH", "PENTHOUSE", "REAR", etc.
 func looksLikeSecondaryValue(value string) bool {
 	if value == "" {
 		return false
