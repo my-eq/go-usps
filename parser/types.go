@@ -1,6 +1,10 @@
 package parser
 
-import "github.com/my-eq/go-usps/models"
+import (
+	"strings"
+	
+	"github.com/my-eq/go-usps/models"
+)
 
 // TokenType represents the classification of a parsed token.
 type TokenType int
@@ -155,12 +159,27 @@ func (p *ParsedAddress) ToAddressRequest() *models.AddressRequest {
 
 // joinTokens joins string parts with a single space.
 func joinTokens(parts []string) string {
-	result := ""
+	if len(parts) == 0 {
+		return ""
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	
+	// Calculate total length to pre-allocate
+	totalLen := len(parts) - 1 // spaces
+	for _, part := range parts {
+		totalLen += len(part)
+	}
+	
+	var b strings.Builder
+	b.Grow(totalLen)
+	
 	for i, part := range parts {
 		if i > 0 {
-			result += " "
+			b.WriteString(" ")
 		}
-		result += part
+		b.WriteString(part)
 	}
-	return result
+	return b.String()
 }
