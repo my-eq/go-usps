@@ -602,6 +602,9 @@ func newUnknownSecondaryDiagnostic(designator string, recognized bool) *Diagnost
 	}
 }
 
+// normalizeCity joins multiple city segments into a single string, converts it to uppercase,
+// and emits a diagnostic if no city is provided. This ensures the city component conforms
+// to USPS Publication 28 requirements.
 func normalizeCity(segments []string) (string, []Diagnostic) {
 	if len(segments) == 0 {
 		return "", []Diagnostic{{
