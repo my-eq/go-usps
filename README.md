@@ -565,10 +565,14 @@ resp, err := client.GetAddress(ctx, req)
 // Parse as user types, fill individual fields
 parsed, _ := parser.Parse(userInput)
 
-streetField.SetText(parsed.HouseNumber + " " + parsed.StreetName)
-cityField.SetText(parsed.City)
-stateField.SetText(parsed.State)
-zipField.SetText(parsed.ZIPCode)
+// Use ToAddressRequest() for proper formatting
+req := parsed.ToAddressRequest()
+
+streetField.SetText(req.StreetAddress)
+secondaryField.SetText(req.SecondaryAddress)
+cityField.SetText(req.City)
+stateField.SetText(req.State)
+zipField.SetText(req.ZIPCode)
 ```
 
 **Import from CSV or external data:**
@@ -578,7 +582,16 @@ zipField.SetText(parsed.ZIPCode)
 for _, row := range csvData {
     parsed, diagnostics := parser.Parse(row.AddressColumn)
     
-    if hasErrors(diagnostics) {
+    // Check for errors
+    hasErrors := false
+    for _, d := range diagnostics {
+        if d.Severity == parser.SeverityError {
+            hasErrors = true
+            break
+        }
+    }
+    
+    if hasErrors {
         log.Printf("Skipping invalid address: %s", row.AddressColumn)
         continue
     }
