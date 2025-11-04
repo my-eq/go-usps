@@ -56,7 +56,7 @@ func (p *Parser) buildParsedAddress(tokens []Token, originalInput string) *Parse
 	seenStreetSuffix := false
 	seenSecondaryDesignator := false
 	seenState := false
-	
+
 	// Find state index to help identify city
 	stateIndex := -1
 	for i, token := range tokens {

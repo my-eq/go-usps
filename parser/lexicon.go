@@ -57,7 +57,7 @@ func initStreetSuffixes() map[string]string {
 		"EXPRESSWAY": "EXPY", "EXPY": "EXPY", "EXP": "EXPY", "EXPR": "EXPY", "EXPRESS": "EXPY", "EXPW": "EXPY",
 		"HIGHWAY": "HWY", "HWY": "HWY", "HIGHWY": "HWY", "HIWAY": "HWY", "HIWY": "HWY", "HWAY": "HWY",
 		"LANE": "LN", "LN": "LN", "LANES": "LN",
-		"PARKWAY": "PKWY", "PKWY": "PKWY", "PARKWY": "PKWY", "PKY": "PKWY", "PKWAY": "PKWY", "PРКWY": "PKWY",
+		"PARKWAY": "PKWY", "PKWY": "PKWY", "PARKWY": "PKWY", "PKY": "PKWY", "PKWAY": "PKWY",
 		"PLACE": "PL", "PL": "PL",
 		"PLAZA": "PLZ", "PLZ": "PLZ", "PLZA": "PLZ",
 		"ROAD": "RD", "RD": "RD",
