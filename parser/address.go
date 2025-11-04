@@ -40,6 +40,8 @@ const (
 	DiagnosticCodeInvalidStateZIP DiagnosticCode = "invalid_state_zip"
 	// DiagnosticCodeUnknownState indicates the provided state code is not part of the USPS list.
 	DiagnosticCodeUnknownState DiagnosticCode = "unknown_state"
+	// DiagnosticCodeUnknownSecondary indicates an unrecognized secondary designator was encountered.
+	DiagnosticCodeUnknownSecondary DiagnosticCode = "unknown_secondary"
 )
 
 // Diagnostic describes an issue encountered while normalizing an address.
@@ -118,9 +120,12 @@ func Parse(input string) ParsedAddress {
 		// Check middle segments for secondary address indicators
 		for _, seg := range middleSegments {
 			if isSecondarySegment(seg) {
-				normalized := normalizeSecondarySegment(seg)
+				normalized, diag := normalizeSecondarySegment(seg)
 				if normalized != "" {
 					secondarySegments = append(secondarySegments, normalized)
+				}
+				if diag != nil {
+					address.Diagnostics = append(address.Diagnostics, *diag)
 				}
 				continue
 			}
@@ -220,13 +225,21 @@ func isSecondarySegment(segment string) bool {
 		}
 	}
 
+	tokens := strings.Fields(segmentClean)
+	if len(tokens) >= 2 {
+		remainder := strings.Join(tokens[1:], " ")
+		if looksLikeSecondaryValue(remainder) {
+			return true
+		}
+	}
+
 	return false
 }
 
 // normalizeSecondarySegment normalizes a standalone secondary address segment
-func normalizeSecondarySegment(segment string) string {
+func normalizeSecondarySegment(segment string) (string, *Diagnostic) {
 	if segment == "" {
-		return ""
+		return "", nil
 	}
 
 	segmentUpper := strings.ToUpper(strings.TrimSpace(segment))
@@ -236,28 +249,30 @@ func normalizeSecondarySegment(segment string) string {
 
 	// Handle hash sign format (e.g., "#12" or "# 12")
 	if strings.HasPrefix(segmentUpper, "#") {
-		return segmentUpper
+		return segmentUpper, nil
 	}
 
 	// Try to match with the secondary pattern
 	if matches := secondaryPattern.FindStringSubmatch(segmentUpper); len(matches) == 3 {
 		rawDesignator := strings.TrimSpace(matches[1])
 		remainder := strings.TrimSpace(matches[2])
-		normalizedDesignator := normalizeSecondaryDesignator(rawDesignator)
-		return strings.TrimSpace(normalizedDesignator + " " + remainder)
+		normalizedDesignator, recognized := normalizeSecondaryDesignator(rawDesignator)
+		diag := newUnknownSecondaryDiagnostic(rawDesignator, recognized)
+		return strings.TrimSpace(normalizedDesignator + " " + remainder), diag
 	}
 
 	// If no pattern matches, try to extract designator and number by splitting on whitespace
 	parts := strings.Fields(segmentUpper)
 	if len(parts) >= 2 {
 		// First part might be the designator
-		normalizedDesignator := normalizeSecondaryDesignator(parts[0])
+		normalizedDesignator, recognized := normalizeSecondaryDesignator(parts[0])
 		remainder := strings.Join(parts[1:], " ")
-		return strings.TrimSpace(normalizedDesignator + " " + remainder)
+		diag := newUnknownSecondaryDiagnostic(parts[0], recognized)
+		return strings.TrimSpace(normalizedDesignator + " " + remainder), diag
 	}
 
 	// Return as-is if we can't parse it
-	return segmentUpper
+	return segmentUpper, nil
 }
 
 // splitInlineSecondary returns the portion before the secondary designator, the designator itself,
@@ -286,6 +301,18 @@ func splitInlineSecondary(segmentUpper string) (primary string, designator strin
 		primaryPart := strings.TrimSpace(segmentUpper[:fullStart])
 		designatorPart := segmentUpper[designatorStart:designatorEnd]
 		return primaryPart, designatorPart, remainderRaw, true
+	}
+
+	parts := strings.Fields(segmentUpper)
+	for i := len(parts) - 2; i >= 0; i-- {
+		remainder := strings.Join(parts[i+1:], " ")
+		if !looksLikeSecondaryValue(remainder) {
+			continue
+		}
+		primaryPart := strings.Join(parts[:i], " ")
+		primaryPart = strings.TrimSpace(primaryPart)
+		designatorPart := parts[i]
+		return primaryPart, designatorPart, remainder, true
 	}
 
 	return segmentUpper, "", "", false
@@ -495,7 +522,10 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 		if !ok {
 			break
 		}
-		normalizedDesignator := normalizeSecondaryDesignator(designator)
+		normalizedDesignator, recognized := normalizeSecondaryDesignator(designator)
+		if diag := newUnknownSecondaryDiagnostic(designator, recognized); diag != nil {
+			diags = append(diags, *diag)
+		}
 		part := strings.TrimSpace(normalizedDesignator + " " + remainder)
 		if part == "" {
 			break
@@ -536,16 +566,34 @@ func normalizeStreet(segment string) (street string, secondary string, diags []D
 	return street, secondary, diags
 }
 
-func normalizeSecondaryDesignator(designator string) string {
+func normalizeSecondaryDesignator(designator string) (string, bool) {
 	designator = strings.ToUpper(strings.TrimSpace(designator))
+	if designator == "#" {
+		return "#", true
+	}
 	if mapped, ok := secondaryMap[secondaryDesignatorToken(designator)]; ok {
-		return string(mapped)
+		return string(mapped), true
 	}
 	cleaned := strings.ReplaceAll(designator, ".", "")
 	if mapped, ok := secondaryMap[secondaryDesignatorToken(cleaned)]; ok {
-		return string(mapped)
+		return string(mapped), true
 	}
-	return designator
+	return designator, false
+}
+
+func newUnknownSecondaryDiagnostic(designator string, recognized bool) *Diagnostic {
+	if recognized {
+		return nil
+	}
+	designator = strings.TrimSpace(strings.ToUpper(designator))
+	if designator == "" {
+		return nil
+	}
+	return &Diagnostic{
+		Severity: SeverityWarning,
+		Code:     DiagnosticCodeUnknownSecondary,
+		Message:  fmt.Sprintf("secondary designator %q is not recognized", designator),
+	}
 }
 
 func normalizeCity(segments []string) (string, []Diagnostic) {

@@ -303,6 +303,17 @@ func TestParseAddress_TableDriven(t *testing.T) {
 			wantDiagnostics: nil,
 		},
 		{
+			name:            "Unknown secondary designator segment",
+			input:           "123 Main St, Wing 5, Springfield, IL 62704",
+			wantStreet:      "123 MAIN ST",
+			wantSecondary:   "WING 5",
+			wantCity:        "SPRINGFIELD",
+			wantState:       "IL",
+			wantZIP:         "62704",
+			wantZIPPlus4:    "",
+			wantDiagnostics: []diagExpect{{Code: DiagnosticCodeUnknownSecondary}},
+		},
+		{
 			name:            "Secondary spans street and segment",
 			input:           "101 Main St Unit 1, Unit 2, Example City, CA 90210",
 			wantStreet:      "101 MAIN ST",
