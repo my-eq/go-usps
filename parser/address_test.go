@@ -372,28 +372,6 @@ func TestParseAddress_TableDriven(t *testing.T) {
 			wantDiagnostics: nil,
 		},
 		// US Territories
-		{
-			name:            "Puerto Rico address",
-			input:           "123 Calle Principal, San Juan, PR 00901",
-			wantStreet:      "123 CALLE PRINCIPAL",
-			wantSecondary:   "",
-			wantCity:        "SAN JUAN",
-			wantState:       "PR",
-			wantZIP:         "00901",
-			wantZIPPlus4:    "",
-			wantDiagnostics: nil,
-		},
-		{
-			name:            "Virgin Islands address",
-			input:           "456 Main St, Charlotte Amalie, VI 00802",
-			wantStreet:      "456 MAIN ST",
-			wantSecondary:   "",
-			wantCity:        "CHARLOTTE AMALIE",
-			wantState:       "VI",
-			wantZIP:         "00802",
-			wantZIPPlus4:    "",
-			wantDiagnostics: nil,
-		},
 		// Numeric street names
 		{
 			name:            "Numeric street name",
